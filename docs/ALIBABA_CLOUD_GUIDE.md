@@ -16,11 +16,11 @@ git add .
 git commit -m "feat: 项目框架优化与自动化部署准备"
 ```
 
-### 1.2 托管代码 (推荐使用 码云 Gitee 或 GitHub)
-1. 在 [Gitee](https://gitee.com) 或 GitHub 创建一个新仓库，命名为 `happy8-analysis`。
+### 1.2 托管代码 (使用 GitHub)
+1. 在 [GitHub](https://github.com) 创建一个新仓库，命名为 `happy8`。
 2. 将本地代码关联到远程仓库：
 ```bash
-git remote add origin https://gitee.com/您的用户名/happy8-analysis.git
+git remote add origin https://github.com/xuguipinga/happy8.git
 git push -u origin "master"
 ```
 
@@ -53,11 +53,12 @@ sudo systemctl enable docker
 ## 第三部分：自动化部署实战
 
 ### 3.1 首次部署
-1. **拉取代码**：
+1. **创建目录并发拉取代码**：
    ```bash
+   sudo mkdir -p /app
    cd /app
-   sudo git clone https://gitee.com/您的用户名/happy8-analysis.git
-   cd happy8-analysis
+   sudo git clone https://github.com/xuguipinga/happy8.git
+   cd happy8
    ```
 2. **执行一键部署脚本**（我已为您写好）：
    ```bash
@@ -76,7 +77,7 @@ sudo systemctl enable docker
    ```
 2. **服务器拉取并发起更新**（在服务器执行）：
    ```bash
-   cd /app/happy8-analysis
+   cd /app/happy8
    git pull
    bash deployment/scripts/deploy.sh
    ```
@@ -100,6 +101,6 @@ git commit -m "update"
 git push
 
 # 远程触发部署
-ssh root@您的服务器IP "cd /app/happy8-analysis && git pull && bash deployment/scripts/deploy.sh"
+ssh root@您的服务器IP "cd /app/happy8 && git pull && bash deployment/scripts/deploy.sh"
 ```
 *以后您改完代码，直接运行这个脚本，剩下的事情系统自动全搞定！*

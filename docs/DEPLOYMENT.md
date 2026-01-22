@@ -20,10 +20,10 @@
     sudo apt update
     sudo apt install python3-pip python3-venv nginx -y
     ```
-2.  **上传代码**：使用 SCP、Git 或 FTP 将代码上传到 `/var/www/happy8`。
+2.  **上传代码**：使用 SCP、Git 或 FTP 将代码上传到 `/app/happy8`。
 3.  **设置虚拟环境**：
     ```bash
-    cd /var/www/happy8
+    cd /app/happy8
     python3 -m venv venv
     source venv/bin/activate
     pip install -r requirements.txt
@@ -43,7 +43,7 @@
     ```
 2.  **一键启动**：
     ```bash
-    cd /var/www/happy8
+    cd /app/happy8
     docker-compose -f deployment/docker/docker-compose.yml up -d --build
     ```
 
