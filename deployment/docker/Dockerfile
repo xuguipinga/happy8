@@ -1,5 +1,5 @@
 # 使用轻量级 Python 镜像
-FROM python:3.9-slim-buster
+FROM python:3.9-slim
 
 # 设置工作目录
 WORKDIR /app
@@ -14,6 +14,7 @@ ENV FLASK_ENV production
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     python3-dev \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # 安装 Python 依赖
