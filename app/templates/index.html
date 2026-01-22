@@ -1,0 +1,1986 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN">
+
+
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>快乐8 智能分析大屏</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <style>
+        body {
+
+            background-color: #f4f6f9;
+
+        }
+
+
+
+        .card {
+
+            margin-bottom: 20px;
+
+            border: none;
+
+            shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+
+        }
+
+
+
+        .ball-hot {
+
+            background: #ff4757;
+
+            color: white;
+
+        }
+
+
+
+        .ball-cold {
+
+            background: #ced6e0;
+
+            color: #2f3542;
+
+        }
+
+
+
+        .trend-table td,
+
+        .trend-table th {
+
+            padding: 4px;
+
+            border: 1px solid #dfe6e9;
+
+            min-width: 25px;
+
+        }
+
+
+
+        .trend-ball-hit {
+
+            width: 20px;
+
+            height: 20px;
+
+            line-height: 20px;
+
+            border-radius: 50%;
+
+            background: #ff4757;
+
+            color: white;
+
+            display: inline-block;
+
+            font-weight: bold;
+
+            font-size: 12px;
+
+        }
+
+
+
+        .trend-omission {
+
+            color: #b2bec3;
+
+            font-size: 12px;
+
+        }
+
+
+
+        .trend-predict-hit {
+
+            width: 20px;
+
+            height: 20px;
+
+            line-height: 18px;
+
+            border-radius: 50%;
+
+            border: 2px solid #2ed573;
+
+            color: #2ed573;
+
+            display: inline-block;
+
+            font-weight: bold;
+
+            font-size: 12px;
+
+        }
+
+
+
+        .card-header {
+
+            background-color: #fff;
+
+            border-bottom: 1px solid #eee;
+
+            font-weight: bold;
+
+        }
+
+
+
+        .ball {
+
+            display: inline-block;
+
+            width: 30px;
+
+            height: 30px;
+
+            line-height: 30px;
+
+            text-align: center;
+
+            border-radius: 50%;
+
+            background-color: #ff4757;
+
+            color: #fff;
+
+            margin: 2px;
+
+            font-weight: bold;
+
+            font-size: 14px;
+
+        }
+
+
+
+        .ball-hot {
+
+            background-color: #ff4757;
+
+        }
+
+
+
+        .ball-cold {
+
+            background-color: #535c68;
+
+        }
+
+
+
+        .stat-card {
+
+            text-align: center;
+
+            padding: 20px;
+
+        }
+
+
+
+        .stat-num {
+
+            font-size: 24px;
+
+            font-weight: bold;
+
+            color: #d63031;
+
+        }
+    </style>
+
+</head>
+
+
+
+<body>
+
+    <div class="container-fluid p-4">
+
+        <div class="d-flex justify-content-between align-items-center mb-4">
+
+            <h2 class="text-primary"><span class="badge bg-danger">LIVE</span> 快乐8 选号分析大屏</h2>
+
+            <div class="d-flex align-items-center">
+
+                <span class="me-2 fw-bold">分析期数:</span>
+
+                <select id="periodCount" class="form-select me-2" style="width: 120px;">
+
+                    <option value="30">最近 30 期</option>
+
+                    <option value="50" selected>最近 50 期</option>
+
+                    <option value="100">最近 100 期</option>
+
+                </select>
+
+                <button class="btn btn-primary" onclick="refreshData()">🔄 刷新数据</button>
+
+                <button class="btn btn-success ms-2" onclick="openManualInputModal()">✏️ 手动录入</button>
+
+            </div>
+
+        </div>
+
+
+
+        <!-- 推荐区域 -->
+
+        <div class="row">
+
+            <div class="col-md-4">
+
+                <div class="card">
+
+                    <div class="card-header">🔥 极品胆码推荐</div>
+
+                    <div class="card-body text-center">
+
+                        <h4 class="mb-3">重点关注区间: <span id="hotZone" class="text-danger">--</span></h4>
+
+                        <div id="recommendDan" class="mb-2">加载中...</div>
+
+                        <button class="btn btn-sm btn-primary mt-2"
+                            onclick="copyRecommendation('快乐8', '极品胆码', 'recommendDan')">📋 复制胆码</button>
+
+                        <br>
+
+                        <small class="text-muted">*基于近期热区+热号计算</small>
+
+                    </div>
+
+                </div>
+
+
+
+                <!-- 新增：热号同出分析卡片 -->
+
+                <div class="card">
+
+                    <div class="card-header">🤝 热号同出分析 (Top 6)</div>
+
+                    <div class="card-body">
+
+                        <p class="mb-2">
+
+                            <strong>最热6码:</strong>
+
+                            <span id="topHotNums" class="text-primary fw-bold">--</span>
+
+                        </p>
+
+                        <div style="max-height: 200px; overflow-y: auto;">
+
+                            <table class="table table-xs text-center" style="font-size: 12px;">
+
+                                <thead class="table-light">
+
+                                    <tr>
+
+                                        <th>期号</th>
+
+                                        <th>同出数</th>
+
+                                        <th>同出号码</th>
+
+                                    </tr>
+
+                                </thead>
+
+                                <tbody id="coOccurTable">
+
+                                    <tr>
+
+                                        <td colspan="3">暂无数据</td>
+
+                                    </tr>
+
+                                </tbody>
+
+                            </table>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+
+                <!-- 新增：玩法专项推荐卡片 -->
+
+                <div class="card border-primary">
+
+                    <div class="card-header bg-primary text-white">🏆 玩法专项推荐 (纯热号流)</div>
+
+                    <div class="card-body">
+
+                        <ul class="list-group list-group-flush">
+
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+
+                                <span><strong>选四 3胆全拖</strong> <span class="badge bg-warning text-dark">稳</span></span>
+
+                                <div>
+
+                                    <span id="recPick4" class="fw-bold text-danger me-2">--</span>
+
+                                    <button class="btn btn-sm btn-outline-primary"
+                                        onclick="copyRecommendation('快乐8', '选四 3胆全拖', 'recPick4')">📋 复制</button>
+
+                                </div>
+
+                            </li>
+
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+
+                                <span><strong>选五 4胆全拖</strong> <span class="badge bg-danger">火</span></span>
+
+                                <div>
+
+                                    <span id="recPick5Dan" class="fw-bold text-danger me-2">--</span>
+
+                                    <button class="btn btn-sm btn-outline-primary"
+                                        onclick="copyRecommendation('快乐8', '选五 4胆全拖', 'recPick5Dan')">📋 复制</button>
+
+                                </div>
+
+                            </li>
+
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+
+                                <span><strong>选五 单式/复式</strong></span>
+
+                                <div>
+
+                                    <span id="recPick5" class="fw-bold text-dark me-2">--</span>
+
+                                    <button class="btn btn-sm btn-outline-primary"
+                                        onclick="copyRecommendation('快乐8', '选五 单式/复式', 'recPick5')">📋 复制</button>
+
+                                </div>
+
+                            </li>
+
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+
+                                <span><strong>选六 单式/复式</strong></span>
+
+                                <div>
+
+                                    <span id="recPick6" class="fw-bold text-dark me-2">--</span>
+
+                                    <button class="btn btn-sm btn-outline-primary"
+                                        onclick="copyRecommendation('快乐8', '选六 单式/复式', 'recPick6')">📋 复制</button>
+
+                                </div>
+
+                            </li>
+
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+
+                                <span><strong>选七 单式/复式</strong></span>
+
+                                <div>
+
+                                    <span id="recPick7" class="fw-bold text-dark me-2">--</span>
+
+                                    <button class="btn btn-sm btn-outline-primary"
+                                        onclick="copyRecommendation('快乐8', '选七 单式/复式', 'recPick7')">📋 复制</button>
+
+                                </div>
+
+                            </li>
+
+                        </ul>
+
+
+
+                        <div class="card-header bg-success text-white mt-3">🔮 智能追号推荐 (结合热号+走势规律)</div>
+
+                        <ul class="list-group list-group-flush">
+
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+
+                                <span><strong>智能选五</strong> <small class="text-muted">热+重+邻</small></span>
+
+                                <div>
+
+                                    <span id="smartPick5" class="fw-bold text-success me-2">--</span>
+
+                                    <button class="btn btn-sm btn-outline-success"
+                                        onclick="copyRecommendation('快乐8', '智能选五', 'smartPick5')">📋 复制</button>
+
+                                </div>
+
+                            </li>
+
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+
+                                <span><strong>智能选六</strong> <small class="text-muted">追号首选</small></span>
+
+                                <div>
+
+                                    <span id="smartPick6" class="fw-bold text-success me-2">--</span>
+
+                                    <button class="btn btn-sm btn-outline-success"
+                                        onclick="copyRecommendation('快乐8', '智能选六', 'smartPick6')">📋 复制</button>
+
+                                </div>
+
+                            </li>
+
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+
+                                <span><strong>智能选七</strong> <small class="text-muted">高胜率型</small></span>
+
+                                <div>
+
+                                    <span id="smartPick7" class="fw-bold text-success me-2">--</span>
+
+                                    <button class="btn btn-sm btn-outline-success"
+                                        onclick="copyRecommendation('快乐8', '智能选七', 'smartPick7')">📋 复制</button>
+
+                                </div>
+
+                            </li>
+
+                        </ul>
+
+
+
+                        <div class="mt-2 text-center text-muted" style="font-size: 12px;">
+
+                            * 智能追号额外权衡了"落号"和"斜连号"的概率
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+
+
+
+            </div>
+
+
+
+            <div class="col-md-8">
+
+                <div class="card">
+
+                    <div class="card-header">📊 1-80号全图频率 (近50期)</div>
+
+                    <div class="card-body">
+
+                        <canvas id="freqChart" height="100"></canvas>
+
+                    </div>
+
+                </div>
+
+
+
+                <!-- 历史验证回顾 (Layout Moved Here) -->
+
+                <div class="card border-info mt-4">
+
+                    <div class="card-header bg-info text-dark">📈 历史推荐验证回顾</div>
+
+                    <div class="card-body p-0">
+
+                        <div style="max-height: 500px; overflow-y: auto;">
+
+                            <table class="table table-sm table-striped mb-0 text-center" style="font-size: 14px;">
+
+                                <thead style="position: sticky; top: 0; background: white; z-index: 1;">
+
+                                    <tr>
+
+                                        <th>期号</th>
+
+                                        <th>选四3胆</th>
+                                        <th>选五4胆</th>
+                                        <th>智能选五</th>
+
+                                        <th>智能选六</th>
+
+                                        <th>智能选七</th>
+
+                                    </tr>
+
+                                </thead>
+
+                                <tbody id="recVerifyTable">
+
+                                    <tr>
+
+                                        <td colspan="4">加载中...</td>
+
+                                    </tr>
+
+                                </tbody>
+
+                            </table>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+
+        <div class="row">
+
+            <!-- 左侧：热号与冷号 -->
+
+            <div class="col-md-4">
+
+                <div class="card">
+
+                    <div class="card-header">📈 最热号码 Top 10</div>
+
+                    <div class="card-body">
+
+                        <table class="table table-sm">
+
+                            <thead>
+
+                                <tr>
+
+                                    <th>号码</th>
+
+                                    <th>出现次数</th>
+
+                                    <th>热度</th>
+
+                                </tr>
+
+                            </thead>
+
+                            <tbody id="hotTable"></tbody>
+
+                        </table>
+
+                    </div>
+
+                </div>
+
+                <div class="card">
+
+                    <div class="card-header">❄️ 最冷/遗漏号码 Top 10</div>
+
+                    <div class="card-body">
+
+                        <table class="table table-sm">
+
+                            <thead>
+
+                                <tr>
+
+                                    <th>号码</th>
+
+                                    <th>出现次数</th>
+
+                                    <th>状态</th>
+
+                                </tr>
+
+                            </thead>
+
+                            <tbody id="coldTable"></tbody>
+
+                        </table>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+
+            <!-- 右侧：开奖历史 -->
+
+
+
+
+            <div class="col-md-4">
+
+                <div class="card">
+
+                    <div class="card-header">📅 历史开奖记录</div>
+
+                    <div class="card-body" style="height: 500px; overflow-y: auto;">
+
+                        <table class="table table-bordered table-striped" style="font-size: 12px;">
+
+                            <thead>
+
+                                <tr>
+
+                                    <th>期号</th>
+
+                                    <th>开奖号码</th>
+
+                                </tr>
+
+                            </thead>
+
+                            <tbody id="drawHistoryTable"></tbody>
+
+                        </table>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+
+        <!-- 新增：历史重号分析 -->
+
+        <div class="row mt-3">
+
+            <div class="col-12">
+
+                <div class="card">
+
+                    <div class="card-header">🔄 历史重号走势分析 (近50期)</div>
+
+                    <div class="card-body">
+
+                        <div class="row">
+
+                            <div class="col-md-9">
+
+                                <canvas id="repeatChart" height="80"></canvas>
+
+                            </div>
+
+                            <div class="col-md-3" style="max-height: 300px; overflow-y: auto;">
+
+                                <table class="table table-sm table-striped text-center" style="font-size: 12px;">
+
+                                    <thead style="position: sticky; top: 0; background: white; z-index: 1;">
+
+                                        <tr>
+
+                                            <th>期号</th>
+
+                                            <th>个数</th>
+
+                                            <th>重号详情</th>
+
+                                        </tr>
+
+                                    </thead>
+
+                                    <tbody id="repeatTable"></tbody>
+
+                                </table>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+
+        <!-- 新增：基本走势图 (遗漏分析) -->
+
+        <div class="row mt-3">
+
+            <div class="col-12">
+
+                <div class="card">
+
+                    <div class="card-header">📊 基本走势图 (01-80 遗漏分析)</div>
+
+                    <div class="card-body p-0">
+
+                        <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
+
+                            <table class="table table-bordered text-center trend-table mb-0"
+                                style="font-size: 12px; white-space: nowrap;">
+
+                                <thead class="bg-light sticky-top" style="z-index: 2;">
+
+                                    <tr id="trendHeader">
+
+                                        <!-- JS 填充 01-80 -->
+
+                                    </tr>
+
+                                </thead>
+
+                                <tbody id="trendBody"></tbody>
+
+                                <tfoot id="trendFoot" class="bg-light font-weight-bold"
+                                    style="position: sticky; bottom: 0; z-index: 2;"></tfoot>
+
+                            </table>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <script>
+        freqChartInstance = null;
+
+
+        let repeatChartInstance = null;
+
+
+
+        document.addEventListener('DOMContentLoaded', function () {
+
+            loadData();
+
+            loadHistory();
+
+        });
+
+
+
+        function refreshData() {
+
+            const num = document.getElementById('periodCount').value;
+
+            // 添加加载状态提示
+
+            const btn = document.querySelector('button');
+
+            const originalText = btn.innerText;
+
+            btn.innerText = '⌛ 加载中...';
+
+            btn.disabled = true;
+
+
+
+            fetch(`/api/refresh?num=${num}`)
+
+                .then(response => {
+
+                    if (!response.ok) {
+
+                        return response.json().then(err => {
+
+                            throw new Error(err.message || '刷新失败');
+
+                        });
+
+                    }
+
+                    return response.json();
+
+                })
+
+                .then(data => {
+
+                    if (data.error) {
+
+                        alert(data.message);
+
+                        btn.innerText = originalText;
+
+                        btn.disabled = false;
+
+                    } else {
+
+                        renderDashboard(data);
+
+                        btn.innerText = originalText;
+
+                        btn.disabled = false;
+
+                        // 更新图表标题
+
+                        const chartHeader = document.querySelector('#freqChart').closest('.card').querySelector('.card-header');
+
+                        if (chartHeader) {
+
+                            chartHeader.innerText = `📊 1-80号全图频率 (近${data.history.length}期)`;
+
+                        }
+
+                        // 重新加载历史记录
+
+                        loadHistory();
+
+                    }
+
+                })
+
+                .catch(err => {
+
+                    alert('刷新失败: ' + err.message + '\n\n请检查网络连接或稍后重试。');
+
+                    btn.innerText = originalText;
+
+                    btn.disabled = false;
+
+                });
+
+        }
+
+
+
+        function loadData() {
+
+            fetch('/api/data')
+
+                .then(response => {
+
+                    if (!response.ok) {
+
+                        return response.json().then(err => {
+
+                            throw new Error(err.message || '数据加载失败');
+
+                        });
+
+                    }
+
+                    return response.json();
+
+                })
+
+                .then(data => {
+
+                    if (data.error) {
+
+                        alert(data.message);
+
+                    } else {
+
+                        renderDashboard(data);
+
+                    }
+
+                })
+
+                .catch(err => {
+
+                    console.error(err);
+
+                    alert('数据加载失败: ' + err.message + '\n\n请检查网络连接或稍后重试。');
+
+                });
+
+        }
+
+
+
+        function renderDashboard(data) {
+
+            const analysis = data.analysis;
+
+            const history = data.history;
+
+
+
+            // 1. 渲染推荐
+
+            document.getElementById('hotZone').innerText = analysis.recommendation.hot_zone;
+
+            const dans = analysis.recommendation.dan_codes;
+
+            let danHtml = '';
+
+            dans.forEach(num => {
+
+                danHtml += `<span class="ball ball-hot" style="width: 40px; height: 40px; line-height: 40px; font-size: 18px;">${num}</span>`;
+
+            });
+
+            document.getElementById('recommendDan').innerHTML = danHtml;
+
+
+
+            // 1.1 渲染热号同出
+
+            const coOccur = analysis.co_occurrence;
+
+            document.getElementById('topHotNums').innerText = coOccur.top_hot_nums.join(', ');
+
+
+
+            const coBody = document.getElementById('coOccurTable');
+
+            coBody.innerHTML = '';
+
+            if (coOccur.history.length === 0) {
+
+                coBody.innerHTML = '<tr><td colspan="3">近期最热号码很少同时出现</td></tr>';
+
+            } else {
+
+                coOccur.history.forEach(item => {
+
+                    const badgeClass = item.hits >= 4 ? 'bg-danger' : 'bg-warning text-dark';
+
+                    coBody.innerHTML += `<tr>
+
+                        <td>${item.period}</td>
+
+                        <td><span class="badge ${badgeClass}">${item.hits}个</span></td>
+
+                        <td class="text-break">${item.hit_numbers.join(', ')}</td>
+
+                    </tr>`;
+
+                });
+
+            }
+
+
+
+            // 1.2 渲染玩法推荐
+
+            const strategies = analysis.strategies;
+
+            document.getElementById('recPick4').innerText = strategies.pick4_3dan.join(', ');
+
+            document.getElementById('recPick5Dan').innerText = strategies.pick5_4dan.join(', ');
+
+            document.getElementById('recPick5').innerText = strategies.pick5_direct.join(', ');
+
+            document.getElementById('recPick6').innerText = strategies.pick6_direct.join(', ');
+
+            document.getElementById('recPick7').innerText = strategies.pick7_direct.join(', ');
+
+
+
+            // 1.3 渲染智能追号
+
+            if (strategies.smart_pick5) {
+
+                document.getElementById('smartPick5').innerText = strategies.smart_pick5.join(', ');
+
+                document.getElementById('smartPick6').innerText = strategies.smart_pick6.join(', ');
+
+                document.getElementById('smartPick7').innerText = strategies.smart_pick7.join(', ');
+
+            }
+
+
+
+            // 1.4 更新所有卡片的标题，显示当前期数
+
+            const periodCount = data.history.length;
+
+            const updateHeader = (elementId, titlePrefix) => {
+
+                const el = document.getElementById(elementId);
+
+                if (el) {
+
+                    const header = el.closest('.card').querySelector('.card-header');
+
+                    if (header) header.innerText = `${titlePrefix} (近${periodCount}期)`;
+
+                }
+
+            };
+
+
+
+            // 利用已有元素定位卡片
+
+            updateHeader('hotZone', '🔥 极品胆码推荐');
+
+            updateHeader('topHotNums', '🤝 热号同出分析');
+
+            updateHeader('recPick4', '🏆 玩法专项推荐');
+
+
+
+            // 2. 渲染全图频率 Chart
+
+            const labels = analysis.full_frequency.map(x => x[0]);
+
+            const counts = analysis.full_frequency.map(x => x[1]);
+
+
+
+            const ctxFreq = document.getElementById('freqChart').getContext('2d');
+
+            if (freqChartInstance) freqChartInstance.destroy();
+
+
+
+            freqChartInstance = new Chart(ctxFreq, {
+
+                type: 'bar',
+
+                data: {
+
+                    labels: labels,
+
+                    datasets: [{
+
+                        label: '出现次数',
+
+                        data: counts,
+
+                        backgroundColor: counts.map(c => c >= 15 ? '#ff4757' : (c <= 5 ? '#535c68' : '#70a1ff')),
+
+                        borderWidth: 0
+
+                    }]
+
+                },
+
+                options: {
+
+                    responsive: true,
+
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+
+            // 4. 热号表
+            const hotBody = document.getElementById('hotTable');
+
+            hotBody.innerHTML = '';
+
+            analysis.most_common.forEach(([num, count]) => {
+
+                hotBody.innerHTML += `<tr>
+
+                    <td><span class="ball ball-hot">${num}</span></td>
+
+                    <td><strong>${count}</strong></td>
+
+                    <td><div class="progress" style="height: 5px;"><div class="progress-bar bg-danger" style="width: ${count / analysis.total_periods * 100}%"></div></div></td>
+
+                </tr>`;
+
+            });
+
+
+
+            // 5. 冷号表
+
+            const coldBody = document.getElementById('coldTable');
+
+            coldBody.innerHTML = '';
+
+            analysis.least_common.forEach(([num, count]) => {
+
+                coldBody.innerHTML += `<tr>
+
+                    <td><span class="ball ball-cold">${num}</span></td>
+
+                    <td>${count}</td>
+
+                    <td><span class="badge bg-secondary">冷</span></td>
+
+                </tr>`;
+
+            });
+
+
+
+            // 6. 历史记录表
+
+            const histBody = document.getElementById('drawHistoryTable');
+
+            histBody.innerHTML = '';
+
+            history.forEach(item => {
+
+                // 只显示前10个号码演示
+
+                const numsMin = item.numbers.slice(0, 10).join(' ') + ' ...';
+
+                histBody.innerHTML += `<tr>
+
+                    <td>${item.period}<br><small class="text-muted">${item.date}</small></td>
+
+                    <td class="text-break" style="color: #d63031; font-weight: bold;">${item.numbers.join(' ')}</td>
+
+                </tr>`;
+
+            });
+
+
+
+            // 7. 渲染重号分析
+
+            if (analysis.repeat_analysis) {
+
+                const repeats = analysis.repeat_analysis;
+
+                const periods = repeats.map(r => r.period).reverse();
+
+                const counts = repeats.map(r => r.count).reverse();
+
+
+
+                // 7.1 渲染图表
+
+                const ctxRepeat = document.getElementById('repeatChart').getContext('2d');
+
+                if (repeatChartInstance) repeatChartInstance.destroy();
+
+
+
+                repeatChartInstance = new Chart(ctxRepeat, {
+
+                    type: 'line',
+
+                    data: {
+
+                        labels: periods,
+
+                        datasets: [{
+
+                            label: '重号个数',
+
+                            data: counts,
+
+                            borderColor: '#8854d0',
+
+                            backgroundColor: 'rgba(136, 84, 208, 0.1)',
+
+                            borderWidth: 2,
+
+                            tension: 0.1,
+
+                            fill: true,
+
+                            pointRadius: 3,
+
+                            pointBackgroundColor: counts.map(c => c >= 5 ? '#eb3b5a' : '#8854d0') // 高重号红色标出
+
+                        }]
+
+                    },
+
+                    options: {
+
+                        responsive: true,
+
+                        scales: {
+
+                            y: {
+
+                                beginAtZero: true,
+
+                                suggestedMax: 8,
+
+                                grid: { color: '#f1f2f6' }
+
+                            },
+
+                            x: { grid: { display: false } }
+
+                        }
+
+                    }
+
+                });
+
+
+
+                // 7.2 渲染表格
+
+                const repeatBody = document.getElementById('repeatTable');
+
+                repeatBody.innerHTML = '';
+
+                // 表格显示最新的在上面 (不需要reverse)
+
+                repeats.forEach(item => {
+
+                    const badgeClass = item.count >= 5 ? 'bg-danger' : (item.count >= 4 ? 'bg-warning text-dark' : 'bg-secondary');
+
+                    repeatBody.innerHTML += `<tr>
+
+                        <td>${item.period}</td>
+
+                        <td><span class="badge ${badgeClass}">${item.count}</span></td>
+
+                        <td class="text-break text-muted">${item.numbers.join(' ')}</td>
+
+                    </tr>`;
+
+                });
+
+            }
+
+
+
+            // 8. 渲染基本走势图
+
+            if (analysis.omission_data) {
+
+                const omData = analysis.omission_data;
+
+                const rows = omData.rows;
+
+                const stats = omData.stats;
+
+                const predScores = analysis.prediction_scores || [];
+
+
+
+                // 8.1 渲染表头
+
+                const tHeader = document.getElementById('trendHeader');
+
+                tHeader.innerHTML = '<th style="position:sticky; left:0; background:#f8f9fa; z-index:3;">期号</th>';
+
+                for (let i = 1; i <= 80; i++) {
+
+                    const numStr = String(i).padStart(2, '0');
+
+                    tHeader.innerHTML += `<th>${numStr}</th>`;
+
+                }
+
+
+
+                // 8.2 渲染主体
+
+                const tBody = document.getElementById('trendBody');
+
+                tBody.innerHTML = '';
+
+                rows.forEach(row => {
+
+                    let trHtml = `<tr><td style="position:sticky; left:0; background:#fff;">${row.period}</td>`;
+
+                    for (let i = 1; i <= 80; i++) {
+
+                        const cell = row.data[i];
+
+                        if (cell.hit) {
+
+                            trHtml += `<td><span class="trend-ball-hit">${String(i).padStart(2, '0')}</span></td>`;
+
+                        } else {
+
+                            trHtml += `<td><span class="trend-omission">${cell.omission}</span></td>`;
+
+                        }
+
+                    }
+
+                    trHtml += '</tr>';
+
+                    tBody.innerHTML += trHtml;
+
+                });
+
+
+
+                // 8.3 渲染统计 (可选，太长了先略过，只渲染预测行)
+
+                const tFoot = document.getElementById('trendFoot');
+
+                tFoot.innerHTML = '';
+
+
+
+                // 预测行
+
+                let predHtml = `<tr><td style="position:sticky; left:0; background:#e8f5e9; color:#2d3436;">下期预测</td>`;
+
+                // 提取前 20 个高分号码
+                const top20Pred = predScores.slice(0, 20).map(x => parseInt(x.num));
+                // 提取前 10 个（重点）
+                const top10Pred = predScores.slice(0, 10).map(x => parseInt(x.num));
+
+                for (let i = 1; i <= 80; i++) {
+                    if (top10Pred.includes(i)) {
+                        // 重点推荐：金色边框
+                        predHtml += `<td><span class="trend-predict-hit" style="border: 2px solid #ffc107; box-shadow: 0 0 5px #ffc107; transform: scale(1.1); font-weight: bold;" title="重点关注">${String(i).padStart(2, '0')}</span></td>`;
+                    } else if (top20Pred.includes(i)) {
+                        predHtml += `<td><span class="trend-predict-hit" title="推荐号码">${String(i).padStart(2, '0')}</span></td>`;
+                    } else {
+                        predHtml += `<td><span class="text-muted">-</span></td>`;
+                    }
+                }
+
+                predHtml += '</tr>';
+
+                tFoot.innerHTML = predHtml;
+
+            }
+
+            // 渲染高级模式识别
+            if (data.pattern_analysis) {
+                renderPatternAnalysis(data.pattern_analysis);
+            }
+
+            function copyRecommendation(gameName, method, elementId) {
+
+                const element = document.getElementById(elementId);
+
+                if (!element) {
+
+                    alert('未找到推荐数据');
+
+                    return;
+
+                }
+
+
+
+                let numbers = element.innerText.trim();
+
+
+
+                // 如果是胆码推荐，需要提取号码球中的数字
+
+                if (elementId === 'recommendDan') {
+
+                    const balls = element.querySelectorAll('.ball');
+
+                    if (balls.length > 0) {
+
+                        numbers = Array.from(balls).map(ball => ball.innerText).join(' ');
+
+                    }
+
+                }
+
+
+
+                if (numbers === '--' || numbers === '加载中...') {
+
+                    alert('推荐数据尚未加载，请稍后再试');
+
+                    return;
+
+                }
+
+
+
+                // 构建复制内容：彩种 方式 号码
+
+                const copyText = `${gameName} ${method}\n号码: ${numbers}`;
+
+
+
+                // 复制到剪贴板
+
+                navigator.clipboard.writeText(copyText).then(() => {
+
+                    // 显示成功提示
+
+                    const button = event.target;
+
+                    const originalText = button.innerHTML;
+
+                    button.innerHTML = '✅ 已复制';
+
+                    button.disabled = true;
+
+
+
+                    setTimeout(() => {
+
+                        button.innerHTML = originalText;
+
+                        button.disabled = false;
+
+                    }, 2000);
+
+                }).catch(err => {
+
+                    // 降级方案：使用传统方法
+
+                    const textArea = document.createElement('textarea');
+
+                    textArea.value = copyText;
+
+                    textArea.style.position = 'fixed';
+
+                    textArea.style.opacity = '0';
+
+                    document.body.appendChild(textArea);
+
+                    textArea.select();
+
+
+
+                    try {
+
+                        document.execCommand('copy');
+
+                        alert('已复制到剪贴板！\n\n' + copyText);
+
+                    } catch (err) {
+
+                        alert('复制失败，请手动复制：\n\n' + copyText);
+
+                    }
+
+
+
+                    document.body.removeChild(textArea);
+
+                });
+
+            }
+        }
+        // 加载历史验证数据
+
+        function loadHistory() {
+
+            fetch('/api/history')
+
+                .then(response => response.json())
+
+                .then(data => {
+
+                    const tbody = document.getElementById('recVerifyTable');
+
+                    if (!tbody) {
+
+                        console.error('找不到 ID 为 recVerifyTable 的元素');
+
+                        return;
+
+                    }
+
+                    tbody.innerHTML = '';
+
+
+
+                    if (!data || data.length === 0) {
+
+                        tbody.innerHTML = '<tr><td colspan="4">暂无历史记录</td></tr>';
+
+                        return;
+
+                    }
+
+
+
+                    data.forEach(item => {
+
+                        const strategiesToCheck = ['pick4_3dan', 'pick5_4dan', 'smart_pick5', 'smart_pick6', 'smart_pick7'];
+
+                        let rowHtml = `<td>${item.period}</td>`;
+
+
+
+                        strategiesToCheck.forEach(key => {
+
+                            let rec = item.recommendations ? item.recommendations[key] : null;
+
+                            let val = item.validation ? item.validation[key] : null;
+
+
+
+                            let content = '<span class="text-muted">--</span>';
+
+
+
+                            if (rec) {
+
+                                let numsStr = Array.isArray(rec) ? rec.join(' ') : String(rec);
+
+                                // 验证信息
+
+                                if (val) {
+
+                                    let badgeColor = 'bg-secondary';
+
+                                    if (val.hit_count >= 3) badgeColor = 'bg-warning text-dark';
+
+                                    if (val.hit_count >= 4) badgeColor = 'bg-danger';
+
+
+
+                                    content = `
+
+                                        <div>
+
+                                            <span class="badge ${badgeColor} mb-1">${val.hit_count}中</span>
+
+                                            <br>
+
+                                            <small class="text-muted" style="font-size: 10px;">${numsStr}</small>
+
+                                        </div>
+
+                                    `;
+
+                                } else if (item.actual_result) {
+
+                                    content = `
+
+                                        <div>
+
+                                            <span class="text-muted">等待计算</span>
+
+                                            <br>
+
+                                            <small class="text-muted" style="font-size: 10px;">${numsStr}</small>
+
+                                        </div>
+
+                                    `;
+
+                                } else {
+
+                                    content = `
+
+                                        <div>
+
+                                            <span class="badge bg-secondary mb-1">待开奖</span>
+
+                                            <br>
+
+                                            <small class="text-muted" style="font-size: 10px;">${numsStr}</small>
+
+                                        </div>
+
+                                    `;
+
+                                }
+
+                            }
+
+                            rowHtml += `<td>${content}</td>`;
+
+                        });
+
+
+
+                        const tr = document.createElement('tr');
+
+                        tr.innerHTML = rowHtml;
+
+                        tbody.appendChild(tr);
+
+                    });
+
+                })
+
+                .catch(err => {
+
+                    console.error('加载历史失败:', err);
+
+                    const el = document.getElementById('recVerifyTable');
+
+                    if (el) el.innerHTML = '<tr><td colspan="4" class="text-danger">加载失败</td></tr>';
+
+                });
+
+        }
+
+
+
+        // --- 手动录入逻辑 ---
+
+
+
+        function openManualInputModal() {
+
+            const container = document.getElementById('manualInputs');
+
+            if (container.querySelectorAll('input').length === 0) {
+
+                container.innerHTML = '';
+
+                for (let i = 0; i < 20; i++) {
+
+                    container.innerHTML += `
+
+                        <div class="col-3 col-sm-2">
+
+                             <input type="number" class="form-control text-center manual-num" min="1" max="80" placeholder="${i + 1}">
+
+                        </div>
+
+                    `;
+
+                }
+
+            }
+
+
+
+            fetch('/api/data').then(r => r.json()).then(d => {
+
+                if (d.history && d.history.length > 0) {
+
+                    const lastPeriod = parseInt(d.history[0].period);
+
+                    document.getElementById('manualPeriod').value = lastPeriod + 1;
+
+                }
+
+            });
+
+
+
+            new bootstrap.Modal(document.getElementById('importModal')).show();
+
+        }
+
+
+
+        // 提交数据
+
+        function submitManualData() {
+
+            const period = document.getElementById('manualPeriod').value;
+
+            const inputs = document.querySelectorAll('.manual-num');
+
+            const numbers = Array.from(inputs).map(input => input.value.padStart(2, '0')).filter(v => v !== '00' && v !== '');
+
+
+
+            if (!period) {
+
+                alert('请输入期号！');
+
+                return;
+
+            }
+
+            if (numbers.length !== 20) {
+
+                alert(`号码数量不正确！当前只有 ${numbers.length} 个有效的1-80号码，需要20个。`);
+
+                return;
+
+            }
+
+
+
+            // 发送请求
+
+            fetch('/api/submit_data', {
+
+                method: 'POST',
+
+                headers: { 'Content-Type': 'application/json' },
+
+                body: JSON.stringify({ period, numbers })
+
+            })
+
+                .then(res => res.json())
+
+                .then(data => {
+
+                    if (data.success) {
+
+                        alert('✅ 录入成功！');
+
+                        // 关闭弹窗
+
+                        const modalEl = document.getElementById('importModal');
+
+                        const modal = bootstrap.Modal.getInstance(modalEl);
+
+                        modal.hide();
+
+
+
+                        // 刷新页面数据
+
+                        renderDashboard(data);
+
+                        loadHistory();
+
+                    } else {
+
+                        alert('❌ 失败: ' + data.message);
+
+                    }
+
+                })
+
+                .catch(err => {
+
+                    alert('❌ 请求错误: ' + err.message);
+
+                });
+
+        }
+
+    </script>
+
+    <!-- 录入弹窗 -->
+
+    <div class="modal fade" id="importModal" tabindex="-1">
+
+        <div class="modal-dialog modal-lg">
+
+            <div class="modal-content">
+
+                <div class="modal-header">
+
+                    <h5 class="modal-title">✏️ 手动录入开奖数据</h5>
+
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+
+                </div>
+
+                <div class="modal-body">
+
+
+
+                    <hr>
+
+
+
+                    <div class="row mb-3">
+
+                        <div class="col-md-4">
+
+                            <label class="form-label">期号</label>
+
+                            <input type="text" class="form-control" id="manualPeriod" placeholder="例如 2026020">
+
+                        </div>
+
+                    </div>
+
+
+
+                    <label class="form-label">开奖号码校对 (需20个)</label>
+
+                    <div class="row g-2" id="manualInputs">
+
+                        <!-- JS 生成 20 个输入框 -->
+
+                    </div>
+
+                </div>
+
+                <div class="modal-footer">
+
+                    <div class="me-auto text-muted" id="ocrDebugInfo" style="font-size: 10px;"></div>
+
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+
+                    <button type="button" class="btn btn-primary" onclick="submitManualData()">✅ 确认提交</button>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- 高级模式识别卡片 - 插入到现有卡片之后 -->
+
+    <div class="card mb-4">
+
+        <div class="card-header bg-info text-white">
+
+            <h5 class="mb-0">🔍 高级模式识别</h5>
+
+        </div>
+
+        <div class="card-body">
+
+            <!-- 连号分析 -->
+
+            <div class="mb-4">
+
+                <h6 class="text-primary">📊 连号分析</h6>
+
+                <div id="consecutiveAnalysis" class="p-3 bg-light rounded">
+
+                    <p class="text-muted">加载中...</p>
+
+                </div>
+
+            </div>
+
+
+
+            <!-- 同尾号分析 -->
+
+            <div class="mb-4">
+
+                <h6 class="text-primary">🎯 同尾号分析</h6>
+
+                <div id="sameTailAnalysis" class="p-3 bg-light rounded">
+
+                    <p class="text-muted">加载中...</p>
+
+                </div>
+
+            </div>
+
+
+
+            <!-- AC值分析 -->
+
+            <div class="mb-4">
+
+                <h6 class="text-primary">📈 AC值分析</h6>
+
+                <div id="acValueAnalysis" class="p-3 bg-light rounded">
+
+                    <p class="text-muted">加载中...</p>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <script>
+
+        // 渲染模式分析结果
+
+
+        // 渲染模式分析结果
+        function renderPatternAnalysis(pattern) {
+            if (!pattern) return;
+
+            // 1. 渲染连号分析
+            if (pattern.consecutive) {
+                const consecutive = pattern.consecutive;
+                let html = `
+                <div class="mb-2"><strong>${consecutive.summary || ''}</strong></div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <h6>连号统计</h6>
+                        <ul class="list-unstyled">
+                            ${(consecutive.stats ? Object.entries(consecutive.stats) : []).map(([key, value]) => `<li>• ${key}: <span class="badge bg-secondary">${value}次</span></li>`).join('')}
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>推荐连号组合</h6>
+                        ${consecutive.recommended && consecutive.recommended.length > 0 ?
+                        consecutive.recommended.map(group => `<div class="mb-2">${group.map(n => `<span class="badge bg-success me-1">${n}</span>`).join('')}</div>`).join('')
+                        : '<p class="text-muted">暂无推荐</p>'}
+                    </div>
+                </div>
+                ${consecutive.recent_examples && consecutive.recent_examples.length > 0 ? `
+                    <div>
+                        <h6>近期连号示例</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered">
+                                <thead><tr><th>期号</th><th>连号</th></tr></thead>
+                                <tbody>
+                                    ${consecutive.recent_examples.map(ex => `<tr><td>${ex.period}</td><td>${ex.numbers.map(n => `<span class="badge bg-info me-1">${n}</span>`).join('')}</td></tr>`).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>` : ''}
+            `;
+                const el = document.getElementById('consecutiveAnalysis');
+                if (el) el.innerHTML = html;
+            }
+
+            // 2. 渲染同尾号分析
+            if (pattern.same_tail) {
+                const sameTail = pattern.same_tail;
+                let html = `
+                <div class="mb-2"><strong>${sameTail.summary || ''}</strong></div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>热尾统计</h6>
+                        <ul class="list-unstyled">
+                            ${(sameTail.stats ? Object.entries(sameTail.stats) : []).slice(0, 5).map(([tail, count]) => `<li>• 尾数${tail}: <span class="badge bg-danger">${count}次</span></li>`).join('')}
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                         <h6>推荐同尾号</h6>
+                         ${sameTail.recommended && sameTail.recommended.length > 0 ?
+                        sameTail.recommended.map(group => `<div class="mb-2">${group.map(n => `<span class="badge bg-primary me-1">${n}</span>`).join('')}</div>`).join('')
+                        : '<p class="text-muted">暂无推荐</p>'}
+                    </div>
+                </div>
+            `;
+                const el = document.getElementById('sameTailAnalysis');
+                if (el) el.innerHTML = html;
+            }
+
+            // 3. 渲染AC值分析
+            if (pattern.ac_value) {
+                const ac = pattern.ac_value;
+                let html = `
+                <div class="mb-2"><strong>${ac.summary || ''}</strong></div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>近期AC值</h6>
+                        <p>${(ac.recent_values || []).slice(0, 10).join(', ')}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>推荐AC值</h6>
+                         <p class="text-success font-weight-bold">${ac.recommended_range || ''}</p>
+                    </div>
+                </div>
+            `;
+                const el = document.getElementById('acValueAnalysis');
+                if (el) el.innerHTML = html;
+            }
+        }
+    </script>
+</body>
+
+
+
+</html>
