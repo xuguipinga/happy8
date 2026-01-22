@@ -10,6 +10,9 @@ ENV PYTHONUNBUFFERED 1
 ENV FLASK_APP run.py
 ENV FLASK_ENV production
 
+# 换源：使用阿里云镜像源加速 apt-get
+RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources
+
 # 安装系统依赖
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
@@ -19,7 +22,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # 安装 Python 依赖
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/
 
 # 复制代码到容器
 COPY . .

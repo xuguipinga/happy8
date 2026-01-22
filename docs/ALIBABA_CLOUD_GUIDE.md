@@ -16,7 +16,22 @@ git add .
 git commit -m "feat: 项目框架优化与自动化部署准备"
 ```
 
-### 1.2 托管代码 (使用 GitHub)
+### 1.2 托管代码 (推荐使用 Gitee / 码云)
+由于国内服务器连接 GitHub 不稳定，强烈推荐使用 **Gitee (码云)**。
+
+1. 在 [Gitee](https://gitee.com) 注册并创建一个新仓库，命名为 `happy8`。
+2. 将本地代码关联到 Gitee 远程仓库：
+```bash
+# 如果之前关联过 GitHub，先移除
+git remote remove origin
+
+# 关联到 Gitee (请将 YOUR_USERNAME 替换为您的用户名)
+git remote add origin https://gitee.com/YOUR_USERNAME/happy8.git
+git push -u origin "master"
+```
+
+### 1.2.1 备选：使用 GitHub
+如果您坚持使用 GitHub，可能会遇到网络超时问题。
 1. 在 [GitHub](https://github.com) 创建一个新仓库，命名为 `happy8`。
 2. 将本地代码关联到远程仓库：
 ```bash
@@ -57,7 +72,13 @@ sudo systemctl enable docker
    ```bash
    sudo mkdir -p /app
    cd /app
-   sudo git clone https://github.com/xuguipinga/happy8.git
+   
+   # 推荐：使用 Gitee 克隆 (速度快)
+   sudo git clone https://gitee.com/YOUR_USERNAME/happy8.git
+   
+   # 备选：使用 GitHub 克隆 (可能超时)
+   # sudo git clone https://github.com/xuguipinga/happy8.git
+   
    cd happy8
    ```
 2. **执行一键部署脚本**（我已为您写好）：
