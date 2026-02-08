@@ -8,6 +8,14 @@ import json
 import os
 from datetime import datetime
 
+# ML预测器(可选,如果模型未训练则跳过)
+try:
+    from app.services.ml_predictor import ml_predictor
+    ML_AVAILABLE = True
+except Exception as e:
+    ML_AVAILABLE = False
+    ml_predictor = None
+
 
 def analyze_omission(data):
     """
@@ -142,7 +150,7 @@ def generate_recommendations(data, omission, hot_numbers):
     
     smart_pick10 = sorted(smart_pick10[:10])
     
-    return {
+    recommendations = {
         'banker_codes': banker_codes[:3],
         'pick4_3dan': sorted(list(set(hot_top[:5]))[:3]),
         'pick5_4dan': sorted(list(set(hot_top[:6]))[:4]),
@@ -152,6 +160,19 @@ def generate_recommendations(data, omission, hot_numbers):
         'smart_pick7': sorted(all_candidates[:7]),
         'smart_pick10': smart_pick10
     }
+    
+    # 添加ML推荐(如果可用)
+    if ML_AVAILABLE and ml_predictor and ml_predictor.is_trained:
+        try:
+            ml_recs = ml_predictor.generate_recommendations(data, balance=True)
+            if ml_recs:
+                recommendations.update(ml_recs)
+                current_app.logger.info('ML推荐已生成')
+        except Exception as e:
+            current_app.logger.warning(f'ML推荐生成失败: {e}')
+    
+    return recommendations
+
 
 
 def generate_trend_rows(data, limit=50):
@@ -366,7 +387,13 @@ def get_analysis_results(data):
             'smart_pick5': recommendations['smart_pick5'],
             'smart_pick6': recommendations['smart_pick6'],
             'smart_pick7': recommendations['smart_pick7'],
-            'smart_pick10': recommendations['smart_pick10']
+            'smart_pick10': recommendations['smart_pick10'],
+            # ML推荐(如果存在)
+            'ml_pick5': recommendations.get('ml_pick5'),
+            'ml_pick6': recommendations.get('ml_pick6'),
+            'ml_pick7': recommendations.get('ml_pick7'),
+            'ml_pick10': recommendations.get('ml_pick10'),
+            'ml_mixed': recommendations.get('ml_mixed')
         },
         'recommendation': {
             'hot_zone': '40-60区间',

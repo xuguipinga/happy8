@@ -139,6 +139,25 @@ def register_routes(app):
             current_app.logger.error(f'提交数据失败: {e}')
             return jsonify({'success': False, 'message': str(e)}), 500
     
+    @app.route('/api/scheduler/status')
+    def scheduler_status():
+        """获取调度器状态"""
+        from app.services.scheduler import scheduler
+        from app.services.auto_updater import auto_updater
+        
+        if not scheduler.scheduler:
+            return jsonify({
+                'enabled': False,
+                'message': '自动更新功能未启用'
+            })
+        
+        return jsonify({
+            'enabled': True,
+            'running': scheduler.scheduler.running,
+            'jobs': scheduler.get_jobs(),
+            'updater_status': auto_updater.get_status()
+        })
+    
     @app.route('/health')
     def health_check():
         """健康检查端点"""

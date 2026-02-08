@@ -45,6 +45,13 @@ class Config:
     HOT_NUMBER_PERIODS = 20  # 热号分析期数
     PATTERN_ANALYSIS_PERIODS = 30  # 模式分析期数
     AC_ANALYSIS_PERIODS = 50  # AC值分析期数
+    
+    # 自动更新配置
+    AUTO_UPDATE_ENABLED = True  # 是否启用自动更新
+    UPDATE_INTERVAL_MINUTES = 15  # 更新间隔(分钟)
+    UPDATE_TIME_WINDOWS = [  # 开奖时间窗口 (开始时间, 结束时间)
+        ('09:00', '21:30'),  # 白天开奖时段
+    ]
 
 
 class DevelopmentConfig(Config):

@@ -417,7 +417,6 @@
 
 
                         <div class="card-header bg-success text-white mt-3">🔮 智能追号推荐 (结合热号+走势规律)</div>
-
                         <ul class="list-group list-group-flush">
 
                             <li class="list-group-item d-flex justify-content-between align-items-center">
@@ -467,11 +466,63 @@
 
                         </ul>
 
+                        <!-- 新增：机器学习推荐 -->
+                        <div class="card-header bg-info text-white mt-3">🤖 机器学习推荐 (AI预测)</div>
+                        <ul class="list-group list-group-flush">
+
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+
+                                <span><strong>ML选五</strong> <small class="text-muted">概率优选</small></span>
+
+                                <div>
+
+                                    <span id="mlPick5" class="fw-bold text-info me-2">--</span>
+
+                                    <button class="btn btn-sm btn-outline-info"
+                                        onclick="copyRecommendation('快乐8', 'ML选五', 'mlPick5')">📋 复制</button>
+
+                                </div>
+
+                            </li>
+
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+
+                                <span><strong>ML选七</strong> <small class="text-muted">AI推荐</small></span>
+
+                                <div>
+
+                                    <span id="mlPick7" class="fw-bold text-info me-2">--</span>
+
+                                    <button class="btn btn-sm btn-outline-info"
+                                        onclick="copyRecommendation('快乐8', 'ML选七', 'mlPick7')">📋 复制</button>
+
+                                </div>
+
+                            </li>
+
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+
+                                <span><strong>ML选十</strong> <small class="text-muted">覆盖预测</small></span>
+
+                                <div>
+
+                                    <span id="mlPick10" class="fw-bold text-info me-2">--</span>
+
+                                    <button class="btn btn-sm btn-outline-info"
+                                        onclick="copyRecommendation('快乐8', 'ML选十', 'mlPick10')">📋 复制</button>
+
+                                </div>
+
+                            </li>
+
+                        </ul>
+
 
 
                         <div class="mt-2 text-center text-muted" style="font-size: 12px;">
 
-                            * 智能追号额外权衡了"落号"和"斜连号"的概率
+                            * 智能追号额外权衡了"落号"和"斜连号"的概率<br>
+                            * ML推荐基于随机森林模型,分析15+特征生成
 
                         </div>
 
@@ -904,6 +955,10 @@
 
                         renderDashboard(data);
 
+                        // 重新加载历史验证数据
+
+                        loadHistory();
+
                     }
 
                 })
@@ -1010,6 +1065,19 @@
 
                 document.getElementById('smartPick7').innerText = strategies.smart_pick7.join(', ');
 
+            }
+
+            // 1.4 渲染ML推荐(如果可用)
+
+            if (strategies.ml_pick5) {
+                document.getElementById('mlPick5').innerText = strategies.ml_pick5.join(', ');
+                document.getElementById('mlPick7').innerText = strategies.ml_pick7.join(', ');
+                document.getElementById('mlPick10').innerText = strategies.ml_pick10.join(', ');
+            } else {
+                // ML模型未加载时显示提示
+                document.getElementById('mlPick5').innerText = '模型未训练';
+                document.getElementById('mlPick7').innerText = '模型未训练';
+                document.getElementById('mlPick10').innerText = '模型未训练';
             }
 
 

@@ -27,4 +27,35 @@ def create_app(config_name=None):
     from app.routes import register_routes
     register_routes(app)
     
+    # 初始化定时任务调度器
+    from app.services.scheduler import scheduler
+    from app.services.auto_updater import auto_updater
+    
+    scheduler.init_app(app)
+    
+    # 添加自动更新任务
+    if app.config.get('AUTO_UPDATE_ENABLED', False):
+        with app.app_context():
+            interval = app.config.get('UPDATE_INTERVAL_MINUTES', 15)
+            scheduler.add_interval_job(
+                func=auto_updater.check_and_update,
+                minutes=interval,
+                job_id='auto_data_update'
+            )
+            app.logger.info(f'自动数据更新任务已配置 (间隔: {interval}分钟)')
+    
+    # 尝试加载ML模型
+    try:
+        from app.services.ml_predictor import ml_predictor
+        with app.app_context():
+            if ml_predictor.load_models():
+                app.logger.info('ML预测模型已加载')
+            else:
+                app.logger.info('ML模型文件不存在,请运行 train_ml_model.py 训练模型')
+    except Exception as e:
+        app.logger.warning(f'ML模型加载失败: {e}')
+    
+    # 启动调度器
+    scheduler.start()
+    
     return app
