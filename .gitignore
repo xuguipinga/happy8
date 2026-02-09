@@ -1,70 +1,30 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-env/
-venv/
-ENV/
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
+# Git & System
+.git/
+.gitignore
 
-# Flask
-instance/
-.webassets-cache
-
-# 日志
-logs/
-*.log
-
-# IDE
+# IDE & Editors
 .vscode/
 .idea/
 *.swp
 *.swo
-*~
 
-# 操作系统
-.DS_Store
-Thumbs.db
-
-# 环境变量
+# Python
+__pycache__/
+*.py[cod]
+*.so
+venv/
+env/
 .env
-.env.local
 
-# 数据库
-*.db
-*.sqlite
-*.sqlite3
+# Logs
+*.log
+logs/
 
-# 备份文件
-*.bak
-*_backup.py
-*_old.py
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
 
-# 临时文件
-*.tmp
-temp/
-tmp/
-
-# Docker
-.dockerignore
-
-# 项目特定
-housing-platform/
-gateway-gateway-service.log
-pattern_analysis_frontend.html
+# Node/JS (if needed later)
+node_modules/
+dist/

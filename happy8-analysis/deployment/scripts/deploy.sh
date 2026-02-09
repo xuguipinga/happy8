@@ -4,8 +4,10 @@
 # 运行环境：Ubuntu/CentOS + Docker
 
 PROJECT_NAME="happy8"
+# 假设部署在 /app/happy8 目录下
 DEPLOY_PATH="/app/$PROJECT_NAME"
-COMPOSE_FILE="$DEPLOY_PATH/deployment/docker/docker-compose.yml"
+# 新结构：docker-compose.yml 在 happy8-analysis/deployment/docker 下
+COMPOSE_FILE="$DEPLOY_PATH/happy8-analysis/deployment/docker/docker-compose.yml"
 
 echo "=========================================="
 echo "    快乐8分析系统 - 开始自动化部署"
