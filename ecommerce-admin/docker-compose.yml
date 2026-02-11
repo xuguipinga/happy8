@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  # MySQL 数据库服务
+  db:
+    image: mysql:8.0
+    container_name: ecommerce_db
+    restart: always
+    environment:
+      # 请务必修改这里密码！
+      MYSQL_ROOT_PASSWORD: root_password_123 # Root管理员密码
+      MYSQL_DATABASE: ecommerce_admin # 自动创建的数据库名
+      MYSQL_USER: app_user # 后端应用使用的账号
+      MYSQL_PASSWORD: app_password_123 # 后端应用使用的密码
+    volumes:
+      # 数据持久化：即使删除容器，数据还在 d:/happy8/ecommerce-admin/data/mysql
+      - ./data/mysql:/var/lib/mysql
+      # 初始化脚本：首次启动时自动建表 (稍后我们会把 SQL 放进去)
+      - ./data/init:/docker-entrypoint-initdb.d
+    ports:
+      - "3307:3306" # 映射到主机端口 (主项目3306, 电商项目3307...)
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+
+  # Redis 缓存服务 (用于未来的 Celery 任务队列)
+  redis:
+    image: redis:6.2-alpine
+    container_name: ecommerce_redis
+    restart: always
+    ports:
+      - "6380:6379" # 映射到主机端口 (主项目6379, 电商项目6380...)
+  # 后端服务 (占位，等代码写好后再开启)
+  # backend:
+  #   build: ./backend
+  #   ports:
+  #     - "5001:5000" # 映射到主机端口 (主项目5000, 电商项目5001...)
+  #   depends_on:
+  #     - db
