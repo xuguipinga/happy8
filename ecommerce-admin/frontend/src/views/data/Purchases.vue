@@ -38,6 +38,46 @@
       </div>
     </div>
 
+    <!-- 时间选择器 -->
+    <PeriodSelector v-model="periodParams" @change="handleSearch" style="margin-bottom: 20px;" />
+
+    <!-- 统计汇总卡片 -->
+    <el-row :gutter="20" style="margin-bottom: 20px;">
+      <el-col :span="6">
+        <el-card shadow="hover">
+          <div class="stat-card">
+            <div class="stat-label">采购总额</div>
+            <div class="stat-value">¥{{ statistics.total_purchase_amount.toLocaleString() }}</div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card shadow="hover">
+          <div class="stat-card">
+            <div class="stat-label">采购物流费</div>
+            <div class="stat-value">¥{{ statistics.total_logistics_fee.toLocaleString() }}</div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card shadow="hover">
+          <div class="stat-card">
+            <div class="stat-label">采购总成本</div>
+            <div class="stat-value warning">¥{{ statistics.total_cost.toLocaleString() }}</div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card shadow="hover">
+          <div class="stat-card">
+            <div class="stat-label">采购单数</div>
+            <div class="stat-value info">{{ statistics.total_purchase_count }}</div>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
+
+
     <el-card class="content-card">
       <!-- 表格 -->
       <el-table :data="tableData" v-loading="tableLoading" style="width: 100%" border stripe>
@@ -72,9 +112,10 @@
           </template>
         </el-table-column>
 
-        <el-table-column prop="order_status" label="状态" width="100">
+        <el-table-column prop="order_status" label="状态" width="120">
           <template #default="scope">
             <el-tag>{{ scope.row.order_status }}</el-tag>
+            <el-tag v-if="scope.row.is_dropship" type="warning" size="small" style="margin-left:5px">代发</el-tag>
           </template>
         </el-table-column>
         
@@ -85,7 +126,7 @@
           </template>
         </el-table-column>
         
-        <el-table-column label="物流" width="200">
+        <el-table-column label="物流/收货" width="200">
           <template #default="scope">
             <div>{{ scope.row.logistics_company }}</div>
             <div class="sub-text">
@@ -99,6 +140,7 @@
                 </span>
                 <span v-else>-</span>
             </div>
+            <div v-if="scope.row.receiver_name" class="sub-text">收: {{ scope.row.receiver_name }}</div>
           </template>
         </el-table-column>
 
@@ -150,6 +192,36 @@
             <el-descriptions-item label="物流单号">{{ currentPurchase.logistics_no }}</el-descriptions-item>
             <el-descriptions-item label="付款时间">{{ currentPurchase.pay_time }}</el-descriptions-item>
             <el-descriptions-item label="收货地址" :span="2">{{ currentPurchase.receiver_address }}</el-descriptions-item>
+            
+            <el-descriptions-item label="发货方">{{ currentPurchase.shipper_name }}</el-descriptions-item>
+            <el-descriptions-item label="收货人">{{ currentPurchase.receiver_name }}</el-descriptions-item>
+            <el-descriptions-item label="联系电话">{{ currentPurchase.receiver_phone }} / {{ currentPurchase.receiver_mobile }}</el-descriptions-item>
+            <el-descriptions-item label="邮编">{{ currentPurchase.zip_code }}</el-descriptions-item>
+            
+            <el-descriptions-item label="货号">{{ currentPurchase.product_no }}</el-descriptions-item>
+            <el-descriptions-item label="型号">{{ currentPurchase.model }}</el-descriptions-item>
+            <el-descriptions-item label="物料编号">{{ currentPurchase.material_no }}</el-descriptions-item>
+            <el-descriptions-item label="单位">{{ currentPurchase.unit }}</el-descriptions-item>
+            <el-descriptions-item label="Offer ID">{{ currentPurchase.offer_id }}</el-descriptions-item>
+            <el-descriptions-item label="货品种类">{{ currentPurchase.category }}</el-descriptions-item>
+            
+            <el-descriptions-item label="买家留言" :span="2">{{ currentPurchase.buyer_note }}</el-descriptions-item>
+            
+            <el-descriptions-item label="发票抬头">{{ currentPurchase.invoice_title }}</el-descriptions-item>
+            <el-descriptions-item label="纳税人识别号">{{ currentPurchase.tax_id }}</el-descriptions-item>
+            <el-descriptions-item label="发票地址电话" :span="2">{{ currentPurchase.invoice_address_phone }}</el-descriptions-item>
+            <el-descriptions-item label="发票账号" :span="2">{{ currentPurchase.invoice_bank_account }}</el-descriptions-item>
+            
+            <el-descriptions-item label="是否代发">
+                <el-tag v-if="currentPurchase.is_dropship" type="warning">是</el-tag>
+                <span v-else>否</span>
+            </el-descriptions-item>
+            <el-descriptions-item label="关联单号">{{ currentPurchase.upstream_order_no }}</el-descriptions-item>
+            <el-descriptions-item label="下游渠道">{{ currentPurchase.downstream_channel }}</el-descriptions-item>
+            <el-descriptions-item label="下单批次">{{ currentPurchase.order_batch_no }}</el-descriptions-item>
+            <el-descriptions-item label="代理商">{{ currentPurchase.agent_name }} ({{ currentPurchase.agent_contact }})</el-descriptions-item>
+            <el-descriptions-item label="下单公司主体">{{ currentPurchase.order_company_entity }}</el-descriptions-item>
+            <el-descriptions-item label="微商单号">{{ currentPurchase.micro_order_no }}</el-descriptions-item>
         </el-descriptions>
       </el-dialog>
 
@@ -249,6 +321,8 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { uploadPurchases, previewPurchases } from '@/api/upload'
 import { getPurchases } from '@/api/purchases'
+import { getPurchaseStatistics } from '@/api/statistics'
+import PeriodSelector from '@/components/PeriodSelector.vue'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
@@ -271,13 +345,77 @@ const searchQuery = ref('')
 const detailsDialogVisible = ref(false)
 const currentPurchase = ref(null)
 
+// 统计数据
+const getFormattedDate = (date) => {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const today = new Date()
+const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+
+const periodParams = ref({
+  period: 'month',
+  startDate: getFormattedDate(firstDayOfMonth), // 默认为本月
+  endDate: getFormattedDate(today)
+})
+
+
+// ... existing code ...
+
+const statistics = ref({
+  total_purchase_amount: 0,
+  total_logistics_fee: 0,
+  total_cost: 0,
+  total_purchase_count: 0
+})
+
+const fetchStatistics = async (val) => {
+  // If val is the params object from PeriodSelector change event, use it
+  const params = (val && val.period) ? val : periodParams.value
+
+  try {
+    const res = await getPurchaseStatistics({
+      period: params.period,
+      start_date: params.startDate,
+      end_date: params.endDate,
+      search: searchQuery.value
+    })
+    
+    if (res.code === 200) {
+      const items = res.data.items
+      
+      // Update Summary
+      statistics.value = {
+        total_purchase_amount: items.reduce((sum, item) => sum + item.purchase_amount, 0),
+        total_logistics_fee: items.reduce((sum, item) => sum + item.logistics_fee, 0),
+        total_cost: items.reduce((sum, item) => sum + item.total_cost, 0),
+        total_purchase_count: items.reduce((sum, item) => sum + item.purchase_count, 0)
+      }
+    }
+  } catch (error) {
+    console.error(error)
+  }
+}
+
 const fetchData = async () => {
+    console.log('Fetching purchases with params:', {
+        page: currentPage.value,
+        per_page: pageSize.value,
+        search: searchQuery.value,
+        start_date: periodParams.value.startDate,
+        end_date: periodParams.value.endDate
+    })
     tableLoading.value = true
     try {
         const res = await getPurchases({
             page: currentPage.value,
             per_page: pageSize.value,
-            search: searchQuery.value
+            search: searchQuery.value,
+            start_date: periodParams.value.startDate,
+            end_date: periodParams.value.endDate
         })
         if (res.code === 200) {
             tableData.value = res.data.items
@@ -294,6 +432,7 @@ const fetchData = async () => {
 const handleSearch = () => {
     currentPage.value = 1
     fetchData()
+    fetchStatistics() // Refresh statistics with search
 }
 
 const handleViewDetails = (row) => {
@@ -303,6 +442,7 @@ const handleViewDetails = (row) => {
 
 onMounted(() => {
     fetchData()
+    // Statistics will be fetched automatically by PeriodSelector initialization
 })
 
 const handleSizeChange = (val) => {
@@ -444,5 +584,29 @@ const confirmUpload = async () => {
 .link-text:hover {
     color: #66b1ff;
     text-decoration: underline;
+}
+
+.stat-card {
+  text-align: center;
+}
+
+.stat-label {
+  font-size: 14px;
+  color: #909399;
+  margin-bottom: 10px;
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: bold;
+  color: #303133;
+}
+
+.stat-value.warning {
+  color: #E6A23C;
+}
+
+.stat-value.info {
+  color: #409EFF;
 }
 </style>

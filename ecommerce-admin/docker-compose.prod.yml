@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  # MySQL Database Service
+  db:
+    image: mysql:8.0
+    container_name: ecommerce_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password_123
+      MYSQL_DATABASE: ecommerce_admin
+      MYSQL_USER: app_user
+      MYSQL_PASSWORD: app_password_123
+    volumes:
+      - ./data/mysql:/var/lib/mysql
+      - ./data/init:/docker-entrypoint-initdb.d
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+
+  # Redis Service
+  redis:
+    image: redis:6.2-alpine
+    container_name: ecommerce_redis
+    restart: always
+
+  # Backend Service
+  backend:
+    build: ./backend
+    container_name: ecommerce_backend
+    restart: always
+    environment:
+      - DATABASE_URL=mysql://app_user:app_password_123@db:3306/ecommerce_admin
+      - REDIS_URL=redis://redis:6379/0
+      - FLASK_APP=run.py
+      - FLASK_DEBUG=0
+    depends_on:
+      - db
+      - redis
+    # Internal port 5000 is accessible to other services
+
+  # Frontend Service (Nginx)
+  frontend:
+    build: ./frontend
+    container_name: ecommerce_frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend

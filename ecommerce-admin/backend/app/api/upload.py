@@ -55,7 +55,14 @@ def preview_orders():
 
 @api.route('/upload/orders', methods=['POST'])
 def upload_orders():
-    """上传订单Excel"""
+    """上传订单Excel - 自动设置租户"""
+    from app.utils.auth_helper import get_tenant_from_request
+    
+    # 获取租户上下文
+    tenant_id, error = get_tenant_from_request()
+    if error:
+        return error
+    
     if 'file' not in request.files:
         return jsonify({'code': 400, 'message': '未找到文件'}), 400
     file = request.files['file']
@@ -65,7 +72,7 @@ def upload_orders():
     if file and allowed_file(file.filename):
         try:
             file_path = save_upload_file(file)
-            result = ExcelService.import_orders(file_path)
+            result = ExcelService.import_orders(file_path, tenant_id=tenant_id)
             
             # 可以在处理完后删除文件，或者保留备份
             # os.remove(file_path)
@@ -116,7 +123,14 @@ def preview_purchases():
 
 @api.route('/upload/purchases', methods=['POST'])
 def upload_purchases():
-    """上传采购Excel"""
+    """上传采购Excel - 自动设置租户"""
+    from app.utils.auth_helper import get_tenant_from_request
+    
+    # 获取租户上下文
+    tenant_id, error = get_tenant_from_request()
+    if error:
+        return error
+    
     if 'file' not in request.files:
         return jsonify({'code': 400, 'message': '未找到文件'}), 400
     file = request.files['file']
@@ -124,7 +138,7 @@ def upload_purchases():
     if file and allowed_file(file.filename):
         try:
             file_path = save_upload_file(file)
-            result = ExcelService.import_purchases(file_path)
+            result = ExcelService.import_purchases(file_path, tenant_id=tenant_id)
             
             if result['success']:
                 return jsonify({
@@ -172,7 +186,14 @@ def preview_logistics():
 
 @api.route('/upload/logistics', methods=['POST'])
 def upload_logistics():
-    """上传物流Excel"""
+    """上传物流Excel - 自动设置租户"""
+    from app.utils.auth_helper import get_tenant_from_request
+    
+    # 获取租户上下文
+    tenant_id, error = get_tenant_from_request()
+    if error:
+        return error
+    
     if 'file' not in request.files:
         return jsonify({'code': 400, 'message': '未找到文件'}), 400
     file = request.files['file']
@@ -180,7 +201,7 @@ def upload_logistics():
     if file and allowed_file(file.filename):
         try:
             file_path = save_upload_file(file)
-            result = ExcelService.import_logistics(file_path)
+            result = ExcelService.import_logistics(file_path, tenant_id=tenant_id)
             
             if result['success']:
                 return jsonify({

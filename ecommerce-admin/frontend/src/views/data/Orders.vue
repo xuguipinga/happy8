@@ -71,19 +71,19 @@
     <el-row :gutter="20" style="margin-bottom: 20px;">
         <el-col :span="6">
             <el-card shadow="hover" class="kpi-card">
-                <el-statistic title="今日订单 (Today's Orders)" :value="kpiData.today_orders" />
+                <el-statistic :title="dateRange && dateRange.length === 2 ? '所选期间订单' : '今日订单 (Today\'s Orders)'" :value="kpiData.today_orders" />
             </el-card>
         </el-col>
         <el-col :span="6">
             <el-card shadow="hover" class="kpi-card">
-                <el-statistic title="今日销售额 (Today's Sales)" :value="kpiData.today_sales" :precision="2">
+                <el-statistic :title="dateRange && dateRange.length === 2 ? '所选期间销售额' : '今日销售额 (Today\'s Sales)'" :value="kpiData.today_sales" :precision="2">
                      <template #prefix>¥</template>
                 </el-statistic>
             </el-card>
         </el-col>
         <el-col :span="6">
             <el-card shadow="hover" class="kpi-card">
-                <el-statistic title="今日毛利 (Today's Profit)" :value="kpiData.today_profit" :precision="2" :value-style="{ color: kpiData.today_profit >= 0 ? '#67C23A' : '#F56C6C' }">
+                <el-statistic :title="dateRange && dateRange.length === 2 ? '所选期间毛利' : '今日毛利 (Today\'s Profit)'" :value="kpiData.today_profit" :precision="2" :value-style="{ color: kpiData.today_profit >= 0 ? '#67C23A' : '#F56C6C' }">
                      <template #prefix>¥</template>
                 </el-statistic>
             </el-card>
@@ -188,6 +188,8 @@
           </template>
         </el-table-column>
         
+        <el-table-column prop="appointed_delivery_time" label="约定发货" width="120" />
+        <el-table-column prop="actual_delivery_time" label="实际发货" width="120" />
         <el-table-column prop="order_time" label="下单时间" width="180" />
 
         <el-table-column label="操作" width="100" fixed="right">
@@ -403,7 +405,15 @@ const kpiData = ref({
 
 const fetchKPI = async () => {
     try {
-        const res = await getOrdersKPI()
+        const params = {
+            search: searchQuery.value
+        }
+        if (dateRange.value && dateRange.value.length === 2) {
+            params.start_date = dateRange.value[0]
+            params.end_date = dateRange.value[1]
+        }
+        
+        const res = await getOrdersKPI(params)
         if (res.code === 200) {
             kpiData.value = res.data
         }

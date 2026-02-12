@@ -34,10 +34,16 @@
             <span>盈亏分析</span>
           </el-menu-item>
           
-          <el-menu-item index="/settings">
-            <el-icon><Setting /></el-icon>
-            <span>系统设置</span>
-          </el-menu-item>
+          <!-- 系统设置子菜单 -->
+          <el-sub-menu index="settings" v-if="isAdmin">
+            <template #title>
+              <el-icon><Setting /></el-icon>
+              <span>系统设置</span>
+            </template>
+            <el-menu-item index="/tenant-settings">租户设置</el-menu-item>
+            <el-menu-item index="/user-management" v-if="isAdmin">用户管理</el-menu-item>
+            <el-menu-item index="/profile">个人中心</el-menu-item>
+          </el-sub-menu>
         </el-menu>
       </el-aside>
       
@@ -91,6 +97,7 @@ const userStore = useUserStore()
 
 const activeMenu = computed(() => route.path)
 const currentRoute = computed(() => route.meta.title || '')
+const isAdmin = computed(() => userStore.userInfo?.role === 'admin')
 
 onMounted(async () => {
   if (userStore.token && !userStore.userInfo) {
