@@ -37,12 +37,12 @@ services:
       - redis
     # Internal port 5000 is accessible to other services
 
-  # Frontend Service (Nginx)
+    # Frontend Service (Nginx)
   frontend:
     build: ./frontend
     container_name: ecommerce_frontend
     restart: always
     ports:
-      - "80:80"
+      - "8080:80"
     depends_on:
       - backend
