@@ -5,11 +5,13 @@ class User(db.Model):
     __tablename__ = 'sys_users'
 
     id = db.Column(db.Integer, primary_key=True)
-    parent_id = db.Column(db.Integer, db.ForeignKey('sys_users.id'), nullable=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey('sys_tenants.id'), nullable=False, index=True, comment='租户ID')
+    parent_id = db.Column(db.Integer, db.ForeignKey('sys_users.id'), nullable=True, comment='父账号ID')
     username = db.Column(db.String(50), unique=True, index=True)
     email = db.Column(db.String(100), unique=True, index=True)
     phone = db.Column(db.String(20), unique=True, index=True)
     password_hash = db.Column(db.String(255), nullable=False)
+    role = db.Column(db.String(20), default='user', comment='角色: admin/user')
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 

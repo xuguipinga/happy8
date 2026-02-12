@@ -38,27 +38,60 @@
       </div>
     </div>
 
+    <!-- 时间选择器 -->
+    <PeriodSelector v-model="periodParams" @change="handleSearch" style="margin-bottom: 20px;" />
+
+    <!-- 统计汇总卡片 -->
+    <el-row :gutter="20" style="margin-bottom: 20px;">
+      <el-col :span="8">
+        <el-card shadow="hover">
+          <div class="stat-card">
+            <div class="stat-label">物流总费用</div>
+            <div class="stat-value warning">¥{{ statistics.total_shipping_fee.toLocaleString() }}</div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="8">
+        <el-card shadow="hover">
+          <div class="stat-card">
+            <div class="stat-label">物流单数</div>
+            <div class="stat-value info">{{ statistics.total_shipment_count }}</div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="8">
+        <el-card shadow="hover">
+          <div class="stat-card">
+            <div class="stat-label">平均物流费</div>
+            <div class="stat-value">¥{{ statistics.avg_shipping_fee.toFixed(2) }}</div>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
+
+
     <el-card class="content-card">
       <!-- 表格 -->
       <el-table :data="tableData" v-loading="tableLoading" style="width: 100%" border stripe>
         <el-table-column prop="tracking_no" label="运单号" width="180" fixed />
         <el-table-column label="参考号/订单号" width="180">
           <template #default="scope">
-            <span 
-                v-if="scope.row.ref_no" 
-                class="link-text"
-                @click="handleViewOrderDetails(scope.row.ref_no)"
-            >
+            <div v-if="scope.row.ref_no" class="link-text" @click="handleViewOrderDetails(scope.row.ref_no)">
                 {{ scope.row.ref_no }}
-            </span>
-            <span v-else>-</span>
+            </div>
+            <div v-if="scope.row.customer_order_no" class="sub-text" title="客户订单号">
+                Cust: {{ scope.row.customer_order_no }}
+            </div>
+            <span v-if="!scope.row.ref_no && !scope.row.customer_order_no">-</span>
           </template>
         </el-table-column>
         
         <el-table-column label="渠道信息" min-width="200">
           <template #default="scope">
             <div>{{ scope.row.logistics_channel }}</div>
+            <div class="sub-text" v-if="scope.row.service_type">类型: {{ scope.row.service_type }}</div>
             <div class="sub-text">{{ scope.row.destination }} ({{ scope.row.zone }})</div>
+            <div class="sub-text" v-if="scope.row.warehouse">仓库: {{ scope.row.warehouse }}</div>
           </template>
         </el-table-column>
         
@@ -130,6 +163,16 @@
             <el-descriptions-item label="优惠金额">{{ currentLogistics.discount_fee }}</el-descriptions-item>
             <el-descriptions-item label="实付运费">{{ currentLogistics.actual_fee }}</el-descriptions-item>
             <el-descriptions-item label="付款方式">{{ currentLogistics.payment_method }}</el-descriptions-item>
+            
+            <el-descriptions-item label="服务类型">{{ currentLogistics.service_type }}</el-descriptions-item>
+            <el-descriptions-item label="仓库">{{ currentLogistics.warehouse }}</el-descriptions-item>
+            <el-descriptions-item label="下单账号">{{ currentLogistics.ordering_account }}</el-descriptions-item>
+            <el-descriptions-item label="客单号">{{ currentLogistics.customer_order_no }}</el-descriptions-item>
+            <el-descriptions-item label="发件人">{{ currentLogistics.sender_name }} ({{ currentLogistics.sender_email }})</el-descriptions-item>
+            <el-descriptions-item label="入库时间">{{ currentLogistics.inbound_time }}</el-descriptions-item>
+            <el-descriptions-item label="出库时间">{{ currentLogistics.outbound_time }}</el-descriptions-item>
+            <el-descriptions-item label="支付时间">{{ currentLogistics.payment_time }}</el-descriptions-item>
+            
             <el-descriptions-item label="创建时间">{{ currentLogistics.create_time }}</el-descriptions-item>
         </el-descriptions>
       </el-dialog>
@@ -256,6 +299,8 @@ import { ref, onMounted } from 'vue'
 import { uploadLogistics, previewLogistics } from '@/api/upload'
 import { getLogistics } from '@/api/logistics'
 import { getOrders } from '@/api/orders'
+import { getLogisticsStatistics } from '@/api/statistics'
+import PeriodSelector from '@/components/PeriodSelector.vue'
 import { ElMessage } from 'element-plus'
 
 const loading = ref(false)
@@ -276,6 +321,61 @@ const pendingFile = ref(null)
 const searchQuery = ref('')
 const detailsDialogVisible = ref(false)
 const currentLogistics = ref(null)
+
+// 统计数据
+const getFormattedDate = (date) => {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const today = new Date()
+const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+
+const periodParams = ref({
+  period: 'month',
+  startDate: getFormattedDate(firstDayOfMonth),
+  endDate: getFormattedDate(today)
+})
+
+
+// ... existing code ...
+
+const statistics = ref({
+  total_shipping_fee: 0,
+  total_shipment_count: 0,
+  avg_shipping_fee: 0
+})
+
+const fetchStatistics = async (val) => {
+  // If val is the params object from PeriodSelector change event, use it
+  const params = (val && val.period) ? val : periodParams.value
+  
+  try {
+    const res = await getLogisticsStatistics({
+      period: params.period,
+      start_date: params.startDate,
+      end_date: params.endDate,
+      search: searchQuery.value
+    })
+    
+    if (res.code === 200) {
+      const items = res.data.items
+      const totalFee = items.reduce((sum, item) => sum + item.shipping_fee, 0)
+      const totalCount = items.reduce((sum, item) => sum + item.shipment_count, 0)
+      
+      // Update Summary
+      statistics.value = {
+        total_shipping_fee: totalFee,
+        total_shipment_count: totalCount,
+        avg_shipping_fee: totalCount > 0 ? totalFee / totalCount : 0
+      }
+    }
+  } catch (error) {
+    console.error(error)
+  }
+}
 
 const orderDialogVisible = ref(false)
 const currentOrder = ref(null)
@@ -307,7 +407,9 @@ const fetchData = async () => {
         const res = await getLogistics({
             page: currentPage.value,
             per_page: pageSize.value,
-            search: searchQuery.value
+            search: searchQuery.value,
+            start_date: periodParams.value.startDate,
+            end_date: periodParams.value.endDate
         })
         if (res.code === 200) {
             tableData.value = res.data.items
@@ -324,6 +426,7 @@ const fetchData = async () => {
 const handleSearch = () => {
     currentPage.value = 1
     fetchData()
+    fetchStatistics() // Refresh statistics with search
 }
 
 const handleViewDetails = (row) => {
@@ -333,6 +436,7 @@ const handleViewDetails = (row) => {
 
 onMounted(() => {
     fetchData()
+    // Statistics will be fetched automatically by PeriodSelector initialization
 })
 
 const handleSizeChange = (val) => {
@@ -472,5 +576,29 @@ const confirmUpload = async () => {
 .profit-negative {
     color: #F56C6C;
     font-weight: bold;
+}
+
+.stat-card {
+  text-align: center;
+}
+
+.stat-label {
+  font-size: 14px;
+  color: #909399;
+  margin-bottom: 10px;
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: bold;
+  color: #303133;
+}
+
+.stat-value.warning {
+  color: #E6A23C;
+}
+
+.stat-value.info {
+  color: #409EFF;
 }
 </style>

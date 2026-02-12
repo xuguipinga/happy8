@@ -3,14 +3,18 @@ from app.api import api
 from app.models.order import Order
 from app.extensions import db
 from sqlalchemy import desc
+from app.middleware import require_auth
+from flask import g
 
 @api.route('/orders', methods=['GET'])
+@require_auth
 def get_orders():
+    """获取订单列表 - 自动按租户过滤"""
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 10, type=int)
     
-    # 构建查询
-    query = Order.query.order_by(desc(Order.order_time))
+    # 构建查询 - 添加租户过滤
+    query = Order.query.filter_by(tenant_id=g.tenant_id).order_by(desc(Order.order_time))
     
     # 搜索功能
     search = request.args.get('search')
@@ -19,7 +23,10 @@ def get_orders():
         query = query.filter(
             (Order.platform_order_no.like(search_term)) | 
             (Order.buyer_name.like(search_term)) |
-            (Order.sku.like(search_term))
+            (Order.sku.like(search_term)) |
+            (Order.product_name.like(search_term)) |
+            (Order.company_name.like(search_term)) |
+            (Order.buyer_email.like(search_term))
         )
     
     # 高级筛选: 日期范围
@@ -76,6 +83,11 @@ def get_orders():
             'currency': order.currency,
             'cost_price': float(order.cost_price) if order.cost_price else 0,
             'logistics_cost': float(order.logistics_cost) if order.logistics_cost else 0,
+            
+            # New fields
+            'initial_payment': float(order.initial_payment) if order.initial_payment else 0,
+            'balance_payment': float(order.balance_payment) if order.balance_payment else 0,
+            'appointed_delivery_time': order.appointed_delivery_time.isoformat() if order.appointed_delivery_time else None,
             'profit': float(order.profit) if order.profit else 0
         })
         
@@ -104,39 +116,78 @@ def recalculate_profit():
             return jsonify({'code': 500, 'message': result['message']}), 500
     except Exception as e:
         return jsonify({'code': 500, 'message': str(e)}), 500
-
 @api.route('/orders/kpi', methods=['GET'])
+@require_auth
 def get_orders_kpi():
-    """获取订单KPI统计数据"""
+    """获取订单KPI统计数据 - 按租户隔离"""
     from sqlalchemy import func
-    from datetime import datetime, date, time
+    from datetime import date, time
+    
+    tenant_id = g.tenant_id
+    # 获取参数
+    search = request.args.get('search')
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
     
     try:
-        # 获取今日起止时间 (假设服务器时间为准，或考虑时区)
-        # 这里简单使用服务器本地时间
-        today = date.today()
-        start_of_day = datetime.combine(today, time.min)
-        end_of_day = datetime.combine(today, time.max)
+        # 如果提供了日期范围，则使用范围，否则默认为今日
+        if start_date and end_date:
+            from datetime import datetime
+            start_of_day = datetime.strptime(start_date, '%Y-%m-%d')
+            end_of_day = datetime.strptime(end_date, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
+        else:
+            today = date.today()
+            start_of_day = datetime.combine(today, time.min)
+            end_of_day = datetime.combine(today, time.max)
         
-        # 1. 今日订单数
-        today_orders_count = Order.query.filter(Order.order_time >= start_of_day, Order.order_time <= end_of_day).count()
-        
-        # 2. 今日销售额 (sum order_amount)
-        today_sales_result = db.session.query(func.sum(Order.order_amount)).filter(
+        # 1. 今日订单数 - 添加租户过滤
+        today_orders_query = Order.query.filter(
+            Order.tenant_id == tenant_id,
             Order.order_time >= start_of_day, 
             Order.order_time <= end_of_day
-        ).scalar()
+        )
+        
+        # 2. 今日销售额 (sum order_amount) - 添加租户过滤
+        today_sales_query = db.session.query(func.sum(Order.order_amount)).filter(
+            Order.tenant_id == tenant_id,
+            Order.order_time >= start_of_day, 
+            Order.order_time <= end_of_day
+        )
+        
+        # 3. 今日毛利 (sum profit) - 添加租户过滤
+        today_profit_query = db.session.query(func.sum(Order.profit)).filter(
+            Order.tenant_id == tenant_id,
+            Order.order_time >= start_of_day, 
+            Order.order_time <= end_of_day
+        )
+        
+        # 4. 累计订单数 - 添加租户过滤
+        total_orders_query = Order.query.filter_by(tenant_id=tenant_id)
+        
+        # 应用搜索过滤
+        if search:
+            search_term = f"%{search}%"
+            search_filter = (
+                (Order.platform_order_no.like(search_term)) | 
+                (Order.buyer_name.like(search_term)) |
+                (Order.sku.like(search_term)) |
+                (Order.product_name.like(search_term)) |
+                (Order.company_name.like(search_term)) |
+                (Order.buyer_email.like(search_term))
+            )
+            today_orders_query = today_orders_query.filter(search_filter)
+            today_sales_query = today_sales_query.filter(search_filter)
+            today_profit_query = today_profit_query.filter(search_filter)
+            total_orders_query = total_orders_query.filter(search_filter)
+            
+        today_orders_count = today_orders_query.count()
+        today_sales_result = today_sales_query.scalar()
         today_sales = float(today_sales_result) if today_sales_result else 0.0
         
-        # 3. 今日毛利 (sum profit)
-        today_profit_result = db.session.query(func.sum(Order.profit)).filter(
-            Order.order_time >= start_of_day, 
-            Order.order_time <= end_of_day
-        ).scalar()
+        today_profit_result = today_profit_query.scalar()
         today_profit = float(today_profit_result) if today_profit_result else 0.0
         
-        # 4. 累计订单数
-        total_orders_count = Order.query.count()
+        total_orders_count = total_orders_query.count()
         
         return jsonify({
             'code': 200,

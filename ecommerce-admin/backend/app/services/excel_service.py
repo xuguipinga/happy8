@@ -92,8 +92,8 @@ class ExcelService:
             return {'success': False, 'message': str(e)}
 
     @staticmethod
-    def import_orders(file_path):
-        """导入订单数据"""
+    def import_orders(file_path, tenant_id):
+        """导入订单数据 - 自动设置租户ID"""
         try:
             df = pd.read_excel(file_path)
             
@@ -108,25 +108,24 @@ class ExcelService:
                     if not platform_order_no or platform_order_no == 'nan':
                         continue
 
+
                     # 1. 优先提取并处理 SKU (Product)
                     sku_val = ExcelService._parse_str(row.get('SKU规格(Sku Specification)'))
                     product_val = ExcelService._parse_str(row.get('商品名称(Product Name)'))
                     
+                    # 简单产品处理
                     if sku_val:
-                        if sku_val not in created_skus:
-                            # 试图查找产品
-                            product = Product.query.filter_by(sku=sku_val).first()
-                            if not product:
-                                # 不存在则创建并立即写入数据库
-                                product = Product(sku=sku_val, name=product_val)
-                                db.session.add(product)
-                                db.session.flush() # 关键：必须在 Order 引用它之前写入
-                            created_skus.add(sku_val)
+                        product = Product.query.filter_by(sku=sku_val, tenant_id=tenant_id).first()
+                        if not product:
+                            # SKU不存在,创建新产品
+                            product = Product(sku=sku_val, name=product_val, tenant_id=tenant_id)
+                            db.session.add(product)
+                            db.session.flush()
 
                     # 2. 处理 Order
                     order = Order.query.filter_by(platform_order_no=platform_order_no).first()
                     if not order:
-                        order = Order(platform_order_no=platform_order_no)
+                        order = Order(platform_order_no=platform_order_no, tenant_id=tenant_id)
                     
                     # 映射字段
                     order.order_time = ExcelService._parse_date(row.get('订单创建时间(Order Create Time)'))
@@ -135,7 +134,7 @@ class ExcelService:
                     order.buyer_name = ExcelService._parse_str(row.get('买家名称(Buyer Name)'))
                     order.seller_name = ExcelService._parse_str(row.get('卖家名称(Seller Name)'))
                     order.product_name = product_val
-                    order.sku = sku_val # 在 Product 确认存在后赋值
+                    order.sku = sku_val
                     order.quantity = int(ExcelService._parse_decimal(row.get('数量(Quantity)')))
                     order.unit_price = ExcelService._parse_decimal(row.get('单价(Unit Price)'))
                     order.order_amount = ExcelService._parse_decimal(row.get('订单总价(Order Amount)'))
@@ -149,12 +148,37 @@ class ExcelService:
                     order.remark = ExcelService._parse_str(row.get('订单备注(Order Remark)'))
                     order.currency = ExcelService._parse_str(row.get('订单币种(Order Currency)'))
                     
+                    # Mapping new fields
+                    order.initial_payment = ExcelService._parse_decimal(row.get('预付款(Initial Payment)'))
+                    order.balance_payment = ExcelService._parse_decimal(row.get('尾款(Balance Payment)'))
+                    order.appointed_delivery_time = ExcelService._parse_date(row.get('约定发货时间(Appointed Delivery Time)'))
+                    
                     # 处理 "是否有合同附件(Attachment)"
                     has_attachment_str = str(row.get('是否有合同附件(Attachment)', '')).lower()
                     order.has_attachment = 'yes' in has_attachment_str or '是' in has_attachment_str
 
                     # 处理日期
                     order.actual_delivery_time = ExcelService._parse_date(row.get('实际发货时间(Actual Delivery Time)'))
+                    
+                    # 成本与利润计算 (独立模式)
+                    if not order.cost_price or order.cost_price == 0:
+                        # 尝试从商品库获取平均成本
+                        if sku_val:
+                             product_for_cost = Product.query.filter_by(sku=sku_val, tenant_id=tenant_id).first()
+                             if product_for_cost and product_for_cost.avg_cost_price and product_for_cost.avg_cost_price > 0:
+                                 # cost_price 是本单总成本
+                                 order.cost_price = product_for_cost.avg_cost_price * (order.quantity or 0)
+                    
+                    # 计算毛利
+                    if order.actual_paid is not None:
+                        cost_val = order.cost_price if order.cost_price else 0
+                        logistics_val = order.logistics_cost if order.logistics_cost else 0
+                        tax_val = order.tax_fee if order.tax_fee else 0
+                        
+                        order.profit = order.actual_paid - cost_val - logistics_val - tax_val
+                        
+                        if cost_val > 0:
+                            order.profit_rate = order.profit / cost_val
                     
                     
                     db.session.add(order)
@@ -211,8 +235,8 @@ class ExcelService:
             return {'success': False, 'message': str(e)}
 
     @staticmethod
-    def import_purchases(file_path):
-        """导入采购数据"""
+    def import_purchases(file_path, tenant_id):
+        """导入采购数据 - 自动设置租户ID"""
         try:
             df = pd.read_excel(file_path)
             success_count = 0
@@ -234,7 +258,7 @@ class ExcelService:
                          if sku_val not in created_skus:
                              product = Product.query.filter_by(sku=sku_val).first()
                              if not product:
-                                 product = Product(sku=sku_val, name=product_name_val)
+                                 product = Product(sku=sku_val, name=product_name_val, tenant_id=tenant_id)
                                  db.session.add(product)
                                  db.session.flush()
                              
@@ -243,14 +267,24 @@ class ExcelService:
                                  unit_price = ExcelService._parse_decimal(row.get('单价(元)'))
                                  quantity = ExcelService._parse_decimal(row.get('数量'))
                                  
-                                 if unit_price > 0:
-                                    product.latest_purchase_price = unit_price
-                                    # Simple average cost update logic (optional, for now just use latest as fallback)
-                                    if product.avg_cost_price <= 0:
-                                        product.avg_cost_price = unit_price
-                                 
+                                 if unit_price > 0 and quantity > 0:
+                                     product.latest_purchase_price = unit_price
+                                     
+                                     # Weighted Average Cost Calculation
+                                     current_stock = product.stock_qty if product.stock_qty else Decimal('0.0')
+                                     current_avg_cost = product.avg_cost_price if product.avg_cost_price else Decimal('0.0')
+                                     
+                                     total_value = (current_stock * current_avg_cost) + (quantity * unit_price)
+                                     new_total_qty = current_stock + quantity
+                                     
+                                     if new_total_qty > 0:
+                                         new_avg_cost = total_value / new_total_qty
+                                         product.avg_cost_price = new_avg_cost
+                                     else:
+                                         product.avg_cost_price = unit_price
+
                                  # Increment stock
-                                 product.stock_qty += int(quantity)
+                                 product.stock_qty += quantity
                              except Exception as e:
                                  logger.warning(f"Failed to update product info for {sku_val}: {e}")
 
@@ -259,7 +293,7 @@ class ExcelService:
                     # 2. 处理 Purchase
                     purchase = Purchase.query.filter_by(purchase_no=purchase_no).first()
                     if not purchase:
-                        purchase = Purchase(purchase_no=purchase_no)
+                        purchase = Purchase(purchase_no=purchase_no, tenant_id=tenant_id)
 
                     purchase.sku = sku_val
                     purchase.product_name = product_name_val
@@ -279,6 +313,42 @@ class ExcelService:
                     purchase.logistics_company = ExcelService._parse_str(row.get('物流公司'))
                     purchase.logistics_no = ExcelService._parse_str(row.get('运单号'))
                     purchase.receiver_address = ExcelService._parse_str(row.get('收货地址'))
+                    
+                    # Mapping new fields
+                    purchase.receiver_name = ExcelService._parse_str(row.get('收货人姓名'))
+                    purchase.receiver_phone = ExcelService._parse_str(row.get('联系电话'))
+                    purchase.receiver_mobile = ExcelService._parse_str(row.get('联系手机'))
+                    purchase.unit = ExcelService._parse_str(row.get('单位'))
+                    purchase.model = ExcelService._parse_str(row.get('型号'))
+                    purchase.material_no = ExcelService._parse_str(row.get('物料编号')) or ExcelService._parse_str(row.get('货号'))
+                    purchase.buyer_note = ExcelService._parse_str(row.get('买家留言'))
+                    
+                    purchase.invoice_title = ExcelService._parse_str(row.get('发票：购货单位名称'))
+                    purchase.tax_id = ExcelService._parse_str(row.get('发票：纳税人识别号'))
+                    purchase.invoice_address_phone = ExcelService._parse_str(row.get('发票：地址、电话'))
+                    purchase.invoice_bank_account = ExcelService._parse_str(row.get('发票：开户行及账号'))
+                    purchase.invoice_receiver_address = ExcelService._parse_str(row.get('发票收取地址'))
+                    
+                    is_dropship_raw = str(row.get('是否代发订单', '')).lower()
+                    purchase.is_dropship = '是' in is_dropship_raw or 'yes' in is_dropship_raw or '1' in is_dropship_raw
+                    
+                    purchase.upstream_order_no = ExcelService._parse_str(row.get('下游订单号')) or ExcelService._parse_str(row.get('关联编号'))
+                    purchase.order_batch_no = ExcelService._parse_str(row.get('下单批次号'))
+                    
+                    # 更多完善字段映射
+                    purchase.shipper_name = ExcelService._parse_str(row.get('发货方'))
+                    purchase.zip_code = ExcelService._parse_str(row.get('邮编'))
+                    purchase.product_no = ExcelService._parse_str(row.get('货号'))
+                    purchase.offer_id = ExcelService._parse_str(row.get('Offer ID'))
+                    purchase.category = ExcelService._parse_str(row.get('货品种类'))
+                    purchase.agent_name = ExcelService._parse_str(row.get('代理商姓名'))
+                    purchase.agent_contact = ExcelService._parse_str(row.get('代理商联系方式'))
+                    purchase.dropship_provider_id = ExcelService._parse_str(row.get('代发服务商id'))
+                    purchase.micro_order_no = ExcelService._parse_str(row.get('微商订单号'))
+                    purchase.downstream_channel = ExcelService._parse_str(row.get('下游渠道'))
+                    purchase.order_company_entity = ExcelService._parse_str(row.get('下单公司主体'))
+                    purchase.initiator_login_name = ExcelService._parse_str(row.get('发起人登录名'))
+                    purchase.is_auto_pay = ExcelService._parse_str(row.get('是否发起免密支付(1:淘货源诚e赊免密支付2:批量下单免密支付)'))
                     
                     db.session.add(purchase)
                     success_count += 1
@@ -338,8 +408,8 @@ class ExcelService:
             return {'success': False, 'message': str(e)}
 
     @staticmethod
-    def import_logistics(file_path):
-        """导入物流数据"""
+    def import_logistics(file_path, tenant_id):
+        """导入物流数据 - 自动设置租户ID"""
         try:
             df = pd.read_excel(file_path)
             success_count = 0
@@ -357,11 +427,12 @@ class ExcelService:
 
                     logistics = Logistics.query.filter_by(tracking_no=tracking_no).first()
                     if not logistics:
-                        logistics = Logistics(tracking_no=tracking_no)
+                        logistics = Logistics(tracking_no=tracking_no, tenant_id=tenant_id)
                         db.session.add(logistics) # Add to session if new
 
                     # Update fields for both new and existing records
                     logistics.ref_no = ExcelService._parse_str(row.get('客户订单号')) or ExcelService._parse_str(row.get('信保订单号'))
+                    logistics.ordering_account = ExcelService._parse_str(row.get('下单账号'))
                     logistics.logistics_channel = ExcelService._parse_str(row.get('服务线路'))
                     logistics.order_status = ExcelService._parse_str(row.get('货件状态'))
                     
@@ -380,6 +451,17 @@ class ExcelService:
                     logistics.discount_fee = ExcelService._parse_decimal(row.get('优惠金额'))
                     logistics.actual_fee = ExcelService._parse_decimal(row.get('实付金额'))
                     logistics.payment_method = ExcelService._parse_str(row.get('支付方式'))
+                    
+                    # Mapping new fields
+                    logistics.service_type = ExcelService._parse_str(row.get('服务类型'))
+                    logistics.warehouse = ExcelService._parse_str(row.get('仓库'))
+                    logistics.inbound_time = ExcelService._parse_date(row.get('入库时间'))
+                    logistics.outbound_time = ExcelService._parse_date(row.get('出库时间'))
+                    logistics.payment_time = ExcelService._parse_date(row.get('支付时间'))
+                    logistics.customer_order_no = ExcelService._parse_str(row.get('客户订单号'))
+                    logistics.sender_name = ExcelService._parse_str(row.get('发件人姓名'))
+                    logistics.sender_email = ExcelService._parse_str(row.get('发件人邮件'))
+                    
                     logistics.create_time = ExcelService._parse_date(row.get('订单创建时间'))
                     
                     success_count += 1

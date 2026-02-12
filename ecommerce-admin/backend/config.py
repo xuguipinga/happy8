@@ -24,8 +24,13 @@ class ProductionConfig(Config):
     # 生产环境强制使用环境变量
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
 
+class TestingConfig(Config):
+    TESTING = True
+    SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
+
 config = {
     'development': DevelopmentConfig,
+    'testing': TestingConfig,
     'production': ProductionConfig,
     'default': DevelopmentConfig
 }

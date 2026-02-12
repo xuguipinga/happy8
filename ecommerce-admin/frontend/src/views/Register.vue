@@ -38,6 +38,28 @@
               size="large"
             />
         </el-form-item>
+
+        <el-divider content-position="left">租户信息</el-divider>
+        
+        <el-form-item prop="tenant_name">
+          <el-input
+            v-model="registerForm.tenant_name"
+            placeholder="租户名称 (创建新租户时填写)"
+            prefix-icon="Shop"
+            size="large"
+          />
+          <span class="form-tip">如果您是第一次注册,请填写租户名称(如:我的店铺)</span>
+        </el-form-item>
+
+        <el-form-item prop="tenant_code">
+          <el-input
+            v-model="registerForm.tenant_code"
+            placeholder="租户邀请码 (加入现有租户时填写)"
+            prefix-icon="Key"
+            size="large"
+          />
+          <span class="form-tip">如果您要加入现有租户,请填写邀请码</span>
+        </el-form-item>
         
         <el-form-item prop="password">
           <el-input
@@ -96,7 +118,9 @@ const registerForm = reactive({
   email: '',
   phone: '',
   password: '',
-  confirmPassword: ''
+  confirmPassword: '',
+  tenant_name: '',  // 新建租户名称
+  tenant_code: ''   // 加入现有租户的邀请码
 })
 
 const validatePass2 = (rule, value, callback) => {
@@ -190,5 +214,13 @@ const handleRegister = async () => {
     display: flex;
     justify-content: center;
     margin-top: 10px;
+}
+
+.form-tip {
+  display: block;
+  font-size: 12px;
+  color: #999;
+  margin-top: 5px;
+  line-height: 1.5;
 }
 </style>

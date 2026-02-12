@@ -8,4 +8,7 @@ from app.api import orders
 from app.api import purchases
 from app.api import logistics
 from app.api import analysis
+from app.api import tenants
+from app.api import profile
+from app.api import statistics
 

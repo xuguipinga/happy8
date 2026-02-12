@@ -25,17 +25,24 @@ class AnalysisService:
             
             for order in orders:
                 # 1. 计算采购成本 (COGS)
-                cost_price = 0
-                product = Product.query.filter_by(sku=order.sku).first()
-                if product:
-                    # 优先使用平均成本，如果没有则使用最新采购价
-                    if product.avg_cost_price and product.avg_cost_price > 0:
-                        cost_price = float(product.avg_cost_price)
-                    elif product.latest_purchase_price and product.latest_purchase_price > 0:
-                        cost_price = float(product.latest_purchase_price)
+                total_cogs = 0
                 
-                total_cogs = cost_price * (order.quantity or 0)
-                order.cost_price = total_cogs # 这里存总成本还是单价? Model comment says "采购成本", usually total for the order line. Let's assume Total.
+                # 优先使用已锁定的成本 (Snapshot)
+                if order.cost_price and order.cost_price > 0:
+                    total_cogs = float(order.cost_price)
+                else:
+                    # Fallback: 实时计算 (并保存以免未来变动)
+                    cost_unit_price = 0
+                    product = Product.query.filter_by(sku=order.sku).first()
+                    if product:
+                        # 优先使用平均成本，如果没有则使用最新采购价
+                        if product.avg_cost_price and product.avg_cost_price > 0:
+                            cost_unit_price = float(product.avg_cost_price)
+                        elif product.latest_purchase_price and product.latest_purchase_price > 0:
+                            cost_unit_price = float(product.latest_purchase_price)
+                    
+                    total_cogs = cost_unit_price * float(order.quantity or 0)
+                    order.cost_price = total_cogs
                 
                 # 2. 计算物流成本
                 logistics_cost = 0

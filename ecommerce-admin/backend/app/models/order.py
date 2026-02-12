@@ -4,7 +4,8 @@ from app.extensions import db
 class Order(db.Model):
     __tablename__ = 'biz_orders'
 
-    id = db.Column(db.BigInteger, primary_key=True)
+    id = db.Column(db.BigInteger().with_variant(db.Integer, "sqlite"), primary_key=True, autoincrement=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey('sys_tenants.id'), nullable=False, index=True, comment='租户ID')
     platform_order_no = db.Column(db.String(100), unique=True, index=True, nullable=False, comment='平台订单号')
     order_time = db.Column(db.DateTime, comment='下单时间')
     buyer_email = db.Column(db.String(150), index=True, comment='买家邮箱')
@@ -30,6 +31,11 @@ class Order(db.Model):
     tax_fee = db.Column(db.Numeric(12, 4), comment='税费')
     shipping_address = db.Column(db.Text, comment='收货地址')
     remark = db.Column(db.Text, comment='备注')
+    
+    # 新增字段 - 完善信息
+    initial_payment = db.Column(db.Numeric(12, 4), comment='预付款')
+    balance_payment = db.Column(db.Numeric(12, 4), comment='尾款')
+    appointed_delivery_time = db.Column(db.DateTime, comment='约定发货时间')
     
     # 成本与利润分析字段
     cost_price = db.Column(db.Numeric(12, 4), default=0.0, comment='采购成本')

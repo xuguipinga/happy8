@@ -56,6 +56,24 @@ const routes = [
                 name: 'ProfitAnalysis',
                 component: () => import('@/views/data/ProfitAnalysis.vue'),
                 meta: { title: '盈亏分析' }
+            },
+            {
+                path: 'tenant-settings',
+                name: 'TenantSettings',
+                component: () => import('@/views/TenantSettings.vue'),
+                meta: { title: '租户设置' }
+            },
+            {
+                path: 'user-management',
+                name: 'UserManagement',
+                component: () => import('@/views/UserManagement.vue'),
+                meta: { title: '用户管理' }
+            },
+            {
+                path: 'profile',
+                name: 'UserProfile',
+                component: () => import('@/views/UserProfile.vue'),
+                meta: { title: '个人中心' }
             }
         ]
     }
