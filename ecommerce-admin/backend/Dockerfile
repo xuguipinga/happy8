@@ -2,7 +2,8 @@ FROM python:3.9-slim
 
 WORKDIR /app
 
-RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/nginx/conf.d/../apt/sources.list || sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list && \
+RUN ([ -f /etc/apt/sources.list ] && sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list || true) && \
+    ([ -d /etc/apt/sources.list.d ] && sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/* || true) && \
     apt-get update && \
     apt-get install -y default-libmysqlclient-dev build-essential pkg-config && \
     rm -rf /var/lib/apt/lists/*
