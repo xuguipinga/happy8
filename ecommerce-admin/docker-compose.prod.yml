@@ -43,6 +43,6 @@ services:
     container_name: ecommerce_frontend
     restart: always
     ports:
-      - "8080:80"
+      - "3344:80"
     depends_on:
       - backend
