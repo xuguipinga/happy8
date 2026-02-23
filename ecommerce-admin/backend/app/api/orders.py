@@ -8,8 +8,6 @@ from flask import g
 
 @api.route('/orders', methods=['GET'])
 @require_auth
-@api.route('/orders', methods=['GET'])
-@require_auth
 def get_orders():
     """获取订单列表 - 自动按租户过滤，并按订单号聚合商品"""
     page = request.args.get('page', 1, type=int)
