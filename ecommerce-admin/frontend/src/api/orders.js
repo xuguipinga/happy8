@@ -15,9 +15,10 @@ export function recalculateProfit() {
     })
 }
 
-export function getOrdersKPI() {
+export function getOrdersKPI(params) {
     return request({
         url: '/orders/kpi',
-        method: 'get'
+        method: 'get',
+        params
     })
 }
