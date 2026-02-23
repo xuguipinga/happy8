@@ -39,7 +39,7 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile.static
+      dockerfile: Dockerfile
     container_name: ecommerce_frontend
     restart: always
     ports:
