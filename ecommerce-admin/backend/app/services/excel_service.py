@@ -122,10 +122,19 @@ class ExcelService:
                             db.session.add(product)
                             db.session.flush()
 
-                    # 2. 处理 Order
-                    order = Order.query.filter_by(platform_order_no=platform_order_no, tenant_id=tenant_id).first()
+                    # 2. 处理 Order - 按 (订单号, SKU) 唯一确定一条记录
+                    order = Order.query.filter_by(
+                        platform_order_no=platform_order_no, 
+                        sku=sku_val, 
+                        tenant_id=tenant_id
+                    ).first()
+                    
                     if not order:
-                        order = Order(platform_order_no=platform_order_no, tenant_id=tenant_id)
+                        order = Order(
+                            platform_order_no=platform_order_no, 
+                            sku=sku_val,
+                            tenant_id=tenant_id
+                        )
                     
                     # 映射字段
                     order.order_time = ExcelService._parse_date(row.get('订单创建时间(Order Create Time)'))

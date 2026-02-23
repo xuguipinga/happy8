@@ -6,7 +6,7 @@ class Order(db.Model):
 
     id = db.Column(db.BigInteger().with_variant(db.Integer, "sqlite"), primary_key=True, autoincrement=True)
     tenant_id = db.Column(db.Integer, db.ForeignKey('sys_tenants.id'), nullable=False, index=True, comment='租户ID')
-    platform_order_no = db.Column(db.String(100), unique=True, index=True, nullable=False, comment='平台订单号')
+    platform_order_no = db.Column(db.String(100), index=True, nullable=False, comment='平台订单号')
     order_time = db.Column(db.DateTime, comment='下单时间')
     buyer_email = db.Column(db.String(150), index=True, comment='买家邮箱')
     company_name = db.Column(db.String(150), comment='公司名称')
