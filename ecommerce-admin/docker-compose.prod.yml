@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # MySQL Database Service
   db:
@@ -39,7 +37,9 @@ services:
 
     # Frontend Service (Nginx)
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.static
     container_name: ecommerce_frontend
     restart: always
     ports:

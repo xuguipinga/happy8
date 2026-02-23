@@ -1,0 +1,21 @@
+# 使用纯净的 Nginx 镜像
+FROM registry.cn-hangzhou.aliyuncs.com/google_containers/nginx-slim:0.8
+
+# 也可以用官方的 nginx:alpine，但在国内可能慢，这里用了阿里云镜像加速
+# FROM nginx:alpine 
+
+# 移除默认配置
+RUN rm /etc/nginx/conf.d/default.conf
+
+# 复制自定义 Nginx 配置
+COPY nginx.conf /etc/nginx/conf.d/
+
+# 关键：直接复制本地打包好的 dist 文件夹到 Nginx 目录
+# 注意：这一步要求你在本地先运行过 npm run build
+COPY dist/ /usr/share/nginx/html/
+
+# 暴露 80 端口
+EXPOSE 80
+
+# 启动 Nginx
+CMD ["nginx", "-g", "daemon off;"]
