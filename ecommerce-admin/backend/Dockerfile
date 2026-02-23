@@ -14,4 +14,4 @@ RUN pip install --upgrade pip setuptools wheel -i https://pypi.tuna.tsinghua.edu
 
 COPY . .
 
-CMD ["gunicorn", "-b", "0.0.0.0:5000", "run:app"]
+CMD ["gunicorn", "-b", "0.0.0.0:5000", "--timeout", "300", "run:app"]
