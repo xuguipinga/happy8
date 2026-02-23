@@ -2,7 +2,12 @@
 FROM node:18-alpine as build-stage
 WORKDIR /app
 COPY package*.json ./
-RUN npm install --registry=https://registry.npmmirror.com
+ENV NODE_OPTIONS="--max-old-space-size=512"
+RUN npm config set registry https://registry.npmmirror.com && \
+    npm config set fetch-retries 5 && \
+    npm config set fetch-retry-factor 2 && \
+    npm config set fetch-timeout 600000 && \
+    npm ci --no-audit --no-fund
 COPY . .
 RUN npm run build
 
