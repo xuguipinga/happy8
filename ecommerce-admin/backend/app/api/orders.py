@@ -232,14 +232,14 @@ def get_orders_kpi():
             today_profit_query = today_profit_query.filter(search_filter)
             total_orders_query = total_orders_query.filter(search_filter)
             
-        today_orders_count = today_orders_query.count()
+        today_orders_count = today_orders_query.with_entities(func.count(Order.platform_order_no.distinct())).scalar() or 0
         today_sales_result = today_sales_query.scalar()
         today_sales = float(today_sales_result) if today_sales_result else 0.0
         
         today_profit_result = today_profit_query.scalar()
         today_profit = float(today_profit_result) if today_profit_result else 0.0
         
-        total_orders_count = total_orders_query.count()
+        total_orders_count = total_orders_query.with_entities(func.count(Order.platform_order_no.distinct())).scalar() or 0
         
         return jsonify({
             'code': 200,
