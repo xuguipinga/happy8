@@ -123,7 +123,7 @@ class ExcelService:
                             db.session.flush()
 
                     # 2. 处理 Order
-                    order = Order.query.filter_by(platform_order_no=platform_order_no).first()
+                    order = Order.query.filter_by(platform_order_no=platform_order_no, tenant_id=tenant_id).first()
                     if not order:
                         order = Order(platform_order_no=platform_order_no, tenant_id=tenant_id)
                     

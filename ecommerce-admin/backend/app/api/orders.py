@@ -121,7 +121,7 @@ def recalculate_profit():
 def get_orders_kpi():
     """获取订单KPI统计数据 - 按租户隔离"""
     from sqlalchemy import func
-    from datetime import date, time
+    from datetime import date, time, datetime
     
     tenant_id = g.tenant_id
     # 获取参数
@@ -132,7 +132,6 @@ def get_orders_kpi():
     try:
         # 如果提供了日期范围，则使用范围，否则默认为今日
         if start_date and end_date:
-            from datetime import datetime
             start_of_day = datetime.strptime(start_date, '%Y-%m-%d')
             end_of_day = datetime.strptime(end_date, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
         else:
