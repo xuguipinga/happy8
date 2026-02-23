@@ -137,18 +137,20 @@
         
         <el-table-column label="商品信息" min-width="250">
           <template #default="scope">
-            <div class="product-info">
-              <div class="product-name">{{ scope.row.product_name }}</div>
-              <div class="product-sku">SKU: {{ scope.row.sku }}</div>
+            <div v-for="(item, index) in scope.row.items" :key="item.id" class="aggregated-item" :class="{ 'has-divider': index < scope.row.items.length - 1 }">
+              <div class="product-name">{{ item.product_name }}</div>
+              <div class="product-sku">SKU: {{ item.sku }}</div>
             </div>
           </template>
         </el-table-column>
 
         <el-table-column label="单价/数量" width="120">
           <template #default="scope">
-            <div class="money-info">
-                <div>{{ scope.row.unit_price }}</div>
-                <div style="color: #909399; font-size: 12px;">x {{ scope.row.quantity }}</div>
+            <div v-for="(item, index) in scope.row.items" :key="item.id" class="aggregated-item" :class="{ 'has-divider': index < scope.row.items.length - 1 }">
+                <div class="money-info">
+                    <div>{{ item.unit_price }}</div>
+                    <div style="color: #909399; font-size: 12px;">x {{ item.quantity }}</div>
+                </div>
             </div>
           </template>
         </el-table-column>
@@ -166,10 +168,10 @@
         <el-table-column label="成本与利润" width="180">
           <template #default="scope">
             <div class="money-info">
-              <div>采购: {{ scope.row.cost_price }} <span style="font-size: 11px; color: #999;">{{ scope.row.currency }}</span></div>
-              <div>物流: {{ scope.row.logistics_cost }} <span style="font-size: 11px; color: #999;">{{ scope.row.currency }}</span></div>
-              <div :class="scope.row.profit >= 0 ? 'profit-positive' : 'profit-negative'">
-                毛利: {{ scope.row.profit }} <span style="font-size: 11px; color: #999;">{{ scope.row.currency }}</span>
+              <div>采购: {{ scope.row.total_cost }} <span style="font-size: 11px; color: #999;">{{ scope.row.currency }}</span></div>
+              <div>物流: {{ scope.row.total_logistics_cost }} <span style="font-size: 11px; color: #999;">{{ scope.row.currency }}</span></div>
+              <div :class="scope.row.total_profit >= 0 ? 'profit-positive' : 'profit-negative'">
+                毛利: {{ scope.row.total_profit }} <span style="font-size: 11px; color: #999;">{{ scope.row.currency }}</span>
               </div>
             </div>
           </template>
@@ -224,20 +226,24 @@
             <el-descriptions-item label="买家姓名">{{ currentOrder.buyer_name }}</el-descriptions-item>
             <el-descriptions-item label="买家国家">{{ currentOrder.buyer_country }}</el-descriptions-item>
             <el-descriptions-item label="买家邮箱">{{ currentOrder.buyer_email }}</el-descriptions-item>
-            <el-descriptions-item label="订单状态">{{ currentOrder.order_status }}</el-descriptions-item>
-            <el-descriptions-item label="SKU">{{ currentOrder.sku }}</el-descriptions-item>
-            <el-descriptions-item label="商品名称">{{ currentOrder.product_name }}</el-descriptions-item>
-            <el-descriptions-item label="数量">{{ currentOrder.quantity }}</el-descriptions-item>
-            <el-descriptions-item label="单价">{{ currentOrder.unit_price }} {{ currentOrder.currency }}</el-descriptions-item>
+            <el-descriptions-item label="商品项" :span="2">
+                <el-table :data="currentOrder.items" border size="small">
+                    <el-table-column prop="product_name" label="商品名称" />
+                    <el-table-column prop="sku" label="SKU" width="150" />
+                    <el-table-column prop="unit_price" label="单价" width="100" />
+                    <el-table-column prop="quantity" label="数量" width="80" />
+                    <el-table-column prop="profit" label="单项利润" width="100" />
+                </el-table>
+            </el-descriptions-item>
             <el-descriptions-item label="订单总额">{{ currentOrder.order_amount }} {{ currentOrder.currency }}</el-descriptions-item>
             <el-descriptions-item label="实付金额">{{ currentOrder.actual_paid }} {{ currentOrder.currency }}</el-descriptions-item>
             <el-descriptions-item label="运费收入">{{ currentOrder.shipping_fee_income }} {{ currentOrder.currency }}</el-descriptions-item>
             <el-descriptions-item label="税费">{{ currentOrder.tax_fee }} {{ currentOrder.currency }}</el-descriptions-item>
             <el-descriptions-item label="折扣金额">{{ currentOrder.discount_amount }} {{ currentOrder.currency }}</el-descriptions-item>
-            <el-descriptions-item label="采购成本">{{ currentOrder.cost_price }} {{ currentOrder.currency }}</el-descriptions-item>
-            <el-descriptions-item label="物流支出">{{ currentOrder.logistics_cost }} {{ currentOrder.currency }}</el-descriptions-item>
-            <el-descriptions-item label="毛利">
-                <span :class="currentOrder.profit >= 0 ? 'profit-positive' : 'profit-negative'">{{ currentOrder.profit }} {{ currentOrder.currency }}</span>
+            <el-descriptions-item label="采购成本 (总)">{{ currentOrder.total_cost }} {{ currentOrder.currency }}</el-descriptions-item>
+            <el-descriptions-item label="物流支出 (总)">{{ currentOrder.total_logistics_cost }} {{ currentOrder.currency }}</el-descriptions-item>
+            <el-descriptions-item label="毛利 (总)">
+                <span :class="currentOrder.total_profit >= 0 ? 'profit-positive' : 'profit-negative'">{{ currentOrder.total_profit }} {{ currentOrder.currency }}</span>
             </el-descriptions-item>
             <el-descriptions-item label="实际发货时间">{{ currentOrder.actual_delivery_time }}</el-descriptions-item>
             <el-descriptions-item label="收货地址" :span="2">{{ currentOrder.shipping_address }}</el-descriptions-item>
@@ -624,6 +630,18 @@ const handleLogisticsPreview = async (orderNo) => {
     padding: 10px;
     border-radius: 4px;
     margin-top: 10px;
+}
+.aggregated-item {
+    padding: 8px 0;
+}
+.aggregated-item.has-divider {
+    border-bottom: 1px solid #ebeef5;
+}
+.aggregated-item:first-child {
+    padding-top: 0;
+}
+.aggregated-item:last-child {
+    padding-bottom: 0;
 }
 .error-item {
     color: #f56c6c;

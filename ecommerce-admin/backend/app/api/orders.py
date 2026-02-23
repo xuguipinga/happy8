@@ -8,13 +8,15 @@ from flask import g
 
 @api.route('/orders', methods=['GET'])
 @require_auth
+@api.route('/orders', methods=['GET'])
+@require_auth
 def get_orders():
-    """获取订单列表 - 自动按租户过滤"""
+    """获取订单列表 - 自动按租户过滤，并按订单号聚合商品"""
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 10, type=int)
     
-    # 构建查询 - 添加租户过滤
-    query = Order.query.filter_by(tenant_id=g.tenant_id).order_by(desc(Order.order_time))
+    # 步骤1: 构建包含所有过滤条件的查询
+    query = Order.query.filter_by(tenant_id=g.tenant_id)
     
     # 搜索功能
     search = request.args.get('search')
@@ -35,66 +37,119 @@ def get_orders():
     if start_date and end_date:
         from datetime import datetime
         try:
-            # 假设前端传的是 YYYY-MM-DD
             start_dt = datetime.strptime(start_date, '%Y-%m-%d')
             end_dt = datetime.strptime(end_date, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
             query = query.filter(Order.order_time >= start_dt, Order.order_time <= end_dt)
         except ValueError:
-            pass # 忽略格式错误的日期
+            pass
 
-    # 高级筛选: 订单状态 (支持多选，逗号分隔)
+    # 高级筛选: 订单状态
     status_param = request.args.get('order_status')
     if status_param:
-        statuses = status_param.split(',')
-        # 过滤空字符串
-        statuses = [s for s in statuses if s]
+        statuses = [s for s in status_param.split(',') if s]
         if statuses:
             query = query.filter(Order.order_status.in_(statuses))
     
-    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
-    orders = pagination.items
+    # 步骤2: 获取满足条件的“唯一订单号”列表，按最新下单时间排序
+    from sqlalchemy import func
     
-    data = []
-    for order in orders:
-        data.append({
-            'id': order.id,
-            'platform_order_no': order.platform_order_no,
-            'order_time': order.order_time.isoformat() if order.order_time else None,
-            'buyer_email': order.buyer_email,
-            'company_name': order.company_name,
-            'buyer_name': order.buyer_name,
-            'seller_name': order.seller_name,
-            'product_name': order.product_name,
-            'sku': order.sku,
-            'quantity': order.quantity,
-            'unit_price': float(order.unit_price) if order.unit_price else 0,
-            'order_amount': float(order.order_amount) if order.order_amount else 0,
-            'shipping_fee_income': float(order.shipping_fee_income) if order.shipping_fee_income else 0,
-            'discount_amount': float(order.discount_amount) if order.discount_amount else 0,
-            'actual_paid': float(order.actual_paid) if order.actual_paid else 0,
-            'order_status': order.order_status,
-            'order_type': order.order_type,
-            'has_attachment': order.has_attachment,
-            'actual_delivery_time': order.actual_delivery_time.isoformat() if order.actual_delivery_time else None,
-            'buyer_country': order.buyer_country,
-            'tax_fee': float(order.tax_fee) if order.tax_fee else 0,
-            'shipping_address': order.shipping_address,
-            'remark': order.remark,
-            'currency': order.currency,
-            'cost_price': float(order.cost_price) if order.cost_price else 0,
-            'logistics_cost': float(order.logistics_cost) if order.logistics_cost else 0,
-            
-            # New fields
-            'initial_payment': float(order.initial_payment) if order.initial_payment else 0,
-            'balance_payment': float(order.balance_payment) if order.balance_payment else 0,
-            'appointed_delivery_time': order.appointed_delivery_time.isoformat() if order.appointed_delivery_time else None,
-            'profit': float(order.profit) if order.profit else 0
+    # 使用子查询找到符合条件的订单ID，再分组统计分页
+    subq = query.with_entities(Order.id).subquery()
+    stmt = db.session.query(
+        Order.platform_order_no,
+        func.max(Order.order_time).label('latest_time')
+    ).filter(Order.id.in_(subq)) \
+     .group_by(Order.platform_order_no) \
+     .order_by(desc('latest_time'))
+    
+    pagination = stmt.paginate(page=page, per_page=per_page, error_out=False)
+    paged_order_nos = [item[0] for item in pagination.items]
+    
+    if not paged_order_nos:
+        return jsonify({
+            'code': 200,
+            'data': {
+                'items': [],
+                'total': pagination.total,
+                'pages': pagination.pages,
+                'current_page': page
+            }
         })
+
+    # 步骤3: 获取这些订单号对应的全量明细
+    all_order_items = Order.query.filter(
+        Order.platform_order_no.in_(paged_order_nos),
+        Order.tenant_id == g.tenant_id
+    ).order_by(desc(Order.order_time)).all()
+    
+    # 步骤4: 在内存中以订单号为 Key 进行聚合
+    aggregated_map = {no: {
+        'platform_order_no': no,
+        'items': [],
+        'total_quantity': 0,
+        'total_cost': 0,
+        'total_profit': 0,
+        'total_logistics_cost': 0,
+        'order_time': None # 待填充
+    } for no in paged_order_nos}
+
+    for item in all_order_items:
+        order_no = item.platform_order_no
+        if order_no not in aggregated_map: continue
+        
+        group = aggregated_map[order_no]
+        
+        # 填充订单基础信息 (仅在第一次遇到该订单号时)
+        if group['order_time'] is None:
+            group.update({
+                'order_time': item.order_time.isoformat() if item.order_time else None,
+                'buyer_email': item.buyer_email,
+                'company_name': item.company_name,
+                'buyer_name': item.buyer_name,
+                'seller_name': item.seller_name,
+                'order_status': item.order_status,
+                'order_type': item.order_type,
+                'buyer_country': item.buyer_country,
+                'shipping_address': item.shipping_address,
+                'remark': item.remark,
+                'currency': item.currency,
+                'order_amount': float(item.order_amount) if item.order_amount else 0,
+                'actual_paid': float(item.actual_paid) if item.actual_paid else 0,
+                'tax_fee': float(item.tax_fee) if item.tax_fee else 0,
+                'shipping_fee_income': float(item.shipping_fee_income) if item.shipping_fee_income else 0,
+                'discount_amount': float(item.discount_amount) if item.discount_amount else 0,
+                'initial_payment': float(item.initial_payment) if item.initial_payment else 0,
+                'balance_payment': float(item.balance_payment) if item.balance_payment else 0,
+                'appointed_delivery_time': item.appointed_delivery_time.isoformat() if item.appointed_delivery_time else None,
+                'actual_delivery_time': item.actual_delivery_time.isoformat() if item.actual_delivery_time else None,
+                'has_attachment': item.has_attachment
+            })
+
+        # 添加商品子项
+        group['items'].append({
+            'id': item.id,
+            'product_name': item.product_name,
+            'sku': item.sku,
+            'quantity': item.quantity,
+            'unit_price': float(item.unit_price) if item.unit_price else 0,
+            'cost_price': float(item.cost_price) if item.cost_price else 0,
+            'logistics_cost': float(item.logistics_cost) if item.logistics_cost else 0,
+            'profit': float(item.profit) if item.profit else 0
+        })
+        
+        # 累加统计字段
+        group['total_quantity'] += (item.quantity or 0)
+        group['total_cost'] += (float(item.cost_price) if item.cost_price else 0)
+        group['total_profit'] += (float(item.profit) if item.profit else 0)
+        group['total_logistics_cost'] += (float(item.logistics_cost) if item.logistics_cost else 0)
+
+    # 按照分页请求的订单号顺序排序
+    final_list = [aggregated_map[no] for no in paged_order_nos if no in aggregated_map]
         
     return jsonify({
         'code': 200,
         'data': {
-            'items': data,
+            'items': final_list,
             'total': pagination.total,
             'pages': pagination.pages,
             'current_page': page
