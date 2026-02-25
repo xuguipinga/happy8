@@ -1,0 +1,100 @@
+{
+    "common": {
+        "search": "Search",
+        "reset": "Reset",
+        "export": "Export",
+        "import": "Import",
+        "refresh": "Refresh",
+        "details": "Details",
+        "operation": "Operation",
+        "confirm": "Confirm",
+        "cancel": "Cancel",
+        "save": "Save",
+        "delete": "Delete",
+        "dateRange": "Date Range",
+        "startDate": "Start Date",
+        "endDate": "End Date",
+        "to": "To",
+        "loading": "Loading",
+        "status": "Status",
+        "noData": "No Data"
+    },
+    "orders": {
+        "title": "Order Management",
+        "platformOrderNo": "Platform Order No.",
+        "orderNo": "Order No.",
+        "orderTime": "Order Time",
+        "productInfo": "Product Info",
+        "sku": "SKU",
+        "unitPrice": "Unit Price",
+        "quantity": "Qty",
+        "amountDetails": "Amount Details",
+        "orderAmount": "Total",
+        "actualPaid": "Paid",
+        "taxFee": "Tax",
+        "costAndProfit": "Cost & Profit",
+        "purchaseCost": "Cost",
+        "logisticsCost": "Logistics",
+        "grossProfit": "Profit",
+        "buyer": "Buyer",
+        "country": "Country",
+        "appointedDelivery": "Appointed DT",
+        "actualDelivery": "Actual DT",
+        "recalculateProfit": "Recalculate Profit",
+        "importExcel": "Import Orders (Excel)",
+        "kpi": {
+            "todayOrders": "Orders (Period)",
+            "todaySales": "Sales (Period)",
+            "todayProfit": "Profit (Period)",
+            "totalOrders": "Total Orders",
+            "totalSales": "Total Sales",
+            "totalProfit": "Total Profit"
+        },
+        "status": {
+            "Pending": "Pending",
+            "Paid": "Paid",
+            "Shipped": "Shipped",
+            "Completed": "Completed",
+            "Cancelled": "Cancelled"
+        }
+    },
+    "logistics": {
+        "title": "Logistics Management",
+        "trackingNo": "Tracking No.",
+        "refNo": "Ref/Order No.",
+        "channel": "Channel Info",
+        "weight": "Weight(kg)",
+        "fee": "Fee",
+        "sentDate": "Sent Date",
+        "importExcel": "Import Logistics (Excel)",
+        "stats": {
+            "totalFee": "Total Fee",
+            "count": "Shipments",
+            "avgFee": "Avg Fee"
+        }
+    },
+    "purchases": {
+        "title": "Purchase Management",
+        "purchaseNo": "Purchase No.",
+        "productInfo": "Product Info",
+        "purchaseInfo": "Purchase Info",
+        "fee": "Fee",
+        "supplier": "Supplier",
+        "logistics": "Logistics/Recv",
+        "importExcel": "Import Purchases (Excel)",
+        "stats": {
+            "amount": "Purchase Total",
+            "logisticsFee": "Logistics Fee",
+            "totalCost": "Total Cost",
+            "count": "Purchases"
+        }
+    },
+    "shortcuts": {
+        "today": "Today",
+        "yesterday": "Yesterday",
+        "last7Days": "Last 7 Days",
+        "last30Days": "Last 30 Days",
+        "thisMonth": "This Month",
+        "lastMonth": "Last Month"
+    }
+}

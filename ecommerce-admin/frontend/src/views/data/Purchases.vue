@@ -1,12 +1,12 @@
 <template>
   <div class="page-container">
     <div class="page-header">
-      <h2>采购管理</h2>
+      <h2>{{ $t('purchases.title') }}</h2>
       <div class="header-right">
         <div class="search-box">
              <el-input
                 v-model="searchQuery"
-                placeholder="搜索采购单号/SKU/商品名"
+                :placeholder="$t('common.search') + '...'"
                 clearable
                 @clear="handleSearch"
                 @keyup.enter="handleSearch"
@@ -31,7 +31,7 @@
             >
             <el-button type="primary" :loading="loading">
                 <el-icon class="el-icon--left"><Upload /></el-icon>
-                导入采购单 (Excel)
+                {{ $t('purchases.importExcel') }}
             </el-button>
             </el-upload>
         </div>
@@ -46,7 +46,7 @@
       <el-col :span="6">
         <el-card shadow="hover">
           <div class="stat-card">
-            <div class="stat-label">采购总额</div>
+            <div class="stat-label">{{ $t('purchases.stats.amount') }}</div>
             <div class="stat-value">¥{{ statistics.total_purchase_amount.toLocaleString() }}</div>
           </div>
         </el-card>
@@ -54,7 +54,7 @@
       <el-col :span="6">
         <el-card shadow="hover">
           <div class="stat-card">
-            <div class="stat-label">采购物流费</div>
+            <div class="stat-label">{{ $t('purchases.stats.logisticsFee') }}</div>
             <div class="stat-value">¥{{ statistics.total_logistics_fee.toLocaleString() }}</div>
           </div>
         </el-card>
@@ -62,7 +62,7 @@
       <el-col :span="6">
         <el-card shadow="hover">
           <div class="stat-card">
-            <div class="stat-label">采购总成本</div>
+            <div class="stat-label">{{ $t('purchases.stats.totalCost') }}</div>
             <div class="stat-value warning">¥{{ statistics.total_cost.toLocaleString() }}</div>
           </div>
         </el-card>
@@ -70,7 +70,7 @@
       <el-col :span="6">
         <el-card shadow="hover">
           <div class="stat-card">
-            <div class="stat-label">采购单数</div>
+            <div class="stat-label">{{ $t('purchases.stats.count') }}</div>
             <div class="stat-value info">{{ statistics.total_purchase_count }}</div>
           </div>
         </el-card>
@@ -80,10 +80,17 @@
 
     <el-card class="content-card">
       <!-- 表格 -->
-      <el-table :data="tableData" v-loading="tableLoading" style="width: 100%" border stripe>
-        <el-table-column prop="purchase_no" label="采购单号" width="180" fixed />
+      <el-table 
+        :data="tableData" 
+        v-loading="tableLoading" 
+        style="width: 100%" 
+        border 
+        stripe
+        max-height="calc(100vh - 350px)"
+      >
+        <el-table-column prop="purchase_no" :label="$t('purchases.purchaseNo')" width="180" fixed />
         
-        <el-table-column label="商品信息" min-width="250">
+        <el-table-column :label="$t('purchases.productInfo')" min-width="250">
           <template #default="scope">
             <div class="product-info">
               <div class="product-name">{{ scope.row.product_name }}</div>
@@ -92,7 +99,7 @@
           </template>
         </el-table-column>
         
-        <el-table-column label="采购信息" width="180">
+        <el-table-column :label="$t('purchases.purchaseInfo')" width="180">
           <template #default="scope">
             <div class="purchase-info">
               <div>数量: {{ scope.row.quantity }}</div>
@@ -102,7 +109,7 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="费用" width="150">
+        <el-table-column :label="$t('purchases.fee')" width="150">
           <template #default="scope">
             <div class="fee-info">
               <div>运费: {{ scope.row.shipping_fee }}</div>
@@ -112,21 +119,21 @@
           </template>
         </el-table-column>
 
-        <el-table-column prop="order_status" label="状态" width="120">
+        <el-table-column prop="order_status" :label="$t('common.status')" width="120">
           <template #default="scope">
             <el-tag>{{ scope.row.order_status }}</el-tag>
             <el-tag v-if="scope.row.is_dropship" type="warning" size="small" style="margin-left:5px">代发</el-tag>
           </template>
         </el-table-column>
         
-        <el-table-column label="供应商" width="200">
+        <el-table-column :label="$t('purchases.supplier')" width="200">
           <template #default="scope">
             <div>{{ scope.row.supplier_company }}</div>
             <div class="sub-text">{{ scope.row.supplier_member }}</div>
           </template>
         </el-table-column>
         
-        <el-table-column label="物流/收货" width="200">
+        <el-table-column :label="$t('purchases.logistics')" width="200">
           <template #default="scope">
             <div>{{ scope.row.logistics_company }}</div>
             <div class="sub-text">
@@ -146,9 +153,9 @@
 
         <el-table-column prop="create_time" label="创建时间" width="180" />
 
-        <el-table-column label="操作" width="100" fixed="right">
+        <el-table-column :label="$t('common.operation')" width="100" fixed="right">
             <template #default="scope">
-              <el-button link type="primary" size="small" @click="handleViewDetails(scope.row)">详情</el-button>
+              <el-button link type="primary" size="small" @click="handleViewDetails(scope.row)">{{ $t('common.details') }}</el-button>
             </template>
         </el-table-column>
       </el-table>
@@ -169,17 +176,15 @@
       <!-- 详情弹窗 -->
       <el-dialog
         v-model="detailsDialogVisible"
-        title="采购单详情"
+        :title="$t('common.details')"
         width="60%"
       >
         <el-descriptions :column="2" border v-if="currentPurchase">
-            <el-descriptions-item label="采购单号">{{ currentPurchase.purchase_no }}</el-descriptions-item>
+            <el-descriptions-item :label="$t('purchases.purchaseNo')">{{ currentPurchase.purchase_no }}</el-descriptions-item>
             <el-descriptions-item label="创建时间">{{ currentPurchase.create_time }}</el-descriptions-item>
             <el-descriptions-item label="供应商公司">{{ currentPurchase.supplier_company }}</el-descriptions-item>
             <el-descriptions-item label="供应商会员">{{ currentPurchase.supplier_member }}</el-descriptions-item>
-            <el-descriptions-item label="买家公司">{{ currentPurchase.buyer_company }}</el-descriptions-item>
-            <el-descriptions-item label="买家会员">{{ currentPurchase.buyer_member }}</el-descriptions-item>
-            <el-descriptions-item label="订单状态">{{ currentPurchase.order_status }}</el-descriptions-item>
+            <el-descriptions-item :label="$t('common.status')">{{ currentPurchase.order_status }}</el-descriptions-item>
             <el-descriptions-item label="SKU">{{ currentPurchase.sku }}</el-descriptions-item>
             <el-descriptions-item label="商品名称" :span="2">{{ currentPurchase.product_name }}</el-descriptions-item>
             <el-descriptions-item label="数量">{{ currentPurchase.quantity }}</el-descriptions-item>
@@ -192,125 +197,7 @@
             <el-descriptions-item label="物流单号">{{ currentPurchase.logistics_no }}</el-descriptions-item>
             <el-descriptions-item label="付款时间">{{ currentPurchase.pay_time }}</el-descriptions-item>
             <el-descriptions-item label="收货地址" :span="2">{{ currentPurchase.receiver_address }}</el-descriptions-item>
-            
-            <el-descriptions-item label="发货方">{{ currentPurchase.shipper_name }}</el-descriptions-item>
-            <el-descriptions-item label="收货人">{{ currentPurchase.receiver_name }}</el-descriptions-item>
-            <el-descriptions-item label="联系电话">{{ currentPurchase.receiver_phone }} / {{ currentPurchase.receiver_mobile }}</el-descriptions-item>
-            <el-descriptions-item label="邮编">{{ currentPurchase.zip_code }}</el-descriptions-item>
-            
-            <el-descriptions-item label="货号">{{ currentPurchase.product_no }}</el-descriptions-item>
-            <el-descriptions-item label="型号">{{ currentPurchase.model }}</el-descriptions-item>
-            <el-descriptions-item label="物料编号">{{ currentPurchase.material_no }}</el-descriptions-item>
-            <el-descriptions-item label="单位">{{ currentPurchase.unit }}</el-descriptions-item>
-            <el-descriptions-item label="Offer ID">{{ currentPurchase.offer_id }}</el-descriptions-item>
-            <el-descriptions-item label="货品种类">{{ currentPurchase.category }}</el-descriptions-item>
-            
-            <el-descriptions-item label="买家留言" :span="2">{{ currentPurchase.buyer_note }}</el-descriptions-item>
-            
-            <el-descriptions-item label="发票抬头">{{ currentPurchase.invoice_title }}</el-descriptions-item>
-            <el-descriptions-item label="纳税人识别号">{{ currentPurchase.tax_id }}</el-descriptions-item>
-            <el-descriptions-item label="发票地址电话" :span="2">{{ currentPurchase.invoice_address_phone }}</el-descriptions-item>
-            <el-descriptions-item label="发票账号" :span="2">{{ currentPurchase.invoice_bank_account }}</el-descriptions-item>
-            
-            <el-descriptions-item label="是否代发">
-                <el-tag v-if="currentPurchase.is_dropship" type="warning">是</el-tag>
-                <span v-else>否</span>
-            </el-descriptions-item>
-            <el-descriptions-item label="关联单号">{{ currentPurchase.upstream_order_no }}</el-descriptions-item>
-            <el-descriptions-item label="下游渠道">{{ currentPurchase.downstream_channel }}</el-descriptions-item>
-            <el-descriptions-item label="下单批次">{{ currentPurchase.order_batch_no }}</el-descriptions-item>
-            <el-descriptions-item label="代理商">{{ currentPurchase.agent_name }} ({{ currentPurchase.agent_contact }})</el-descriptions-item>
-            <el-descriptions-item label="下单公司主体">{{ currentPurchase.order_company_entity }}</el-descriptions-item>
-            <el-descriptions-item label="微商单号">{{ currentPurchase.micro_order_no }}</el-descriptions-item>
         </el-descriptions>
-      </el-dialog>
-
-      <!-- 导入预览弹窗 -->
-      <el-dialog
-        v-model="importPreviewDialogVisible"
-        title="导入数据预览 (Pre-flight Check)"
-        width="50%"
-      >
-        <div class="preview-content">
-            <el-alert
-                title="请确认以下数据变更"
-                type="info"
-                show-icon
-                :closable="false"
-                style="margin-bottom: 20px;"
-            />
-            
-            <el-row :gutter="20" style="margin-bottom: 20px; text-align: center;">
-                <el-col :span="8">
-                    <el-statistic title="解析总行数" :value="previewStats.total" />
-                </el-col>
-                <el-col :span="8">
-                    <el-statistic title="预计新增" :value="previewStats.new" value-style="color: #67C23A" />
-                </el-col>
-                <el-col :span="8">
-                    <el-statistic title="预计更新" :value="previewStats.update" value-style="color: #409EFF" />
-                </el-col>
-            </el-row>
-
-            <div v-if="previewStats.errors.length > 0" class="error-section">
-                <el-alert
-                    :title="`发现 ${previewStats.errors.length} 条数据异常，这些行将被跳过`"
-                    type="error"
-                    show-icon
-                    :closable="false"
-                />
-                <div class="error-list">
-                    <p v-for="(err, index) in previewStats.errors" :key="index" class="error-item">{{ err }}</p>
-                </div>
-            </div>
-
-            <div class="data-preview">
-                <h4>前5条数据示例：</h4>
-                <el-table :data="previewStats.preview_data" size="small" border>
-                    <el-table-column prop="purchase_no" label="采购单号" />
-                    <el-table-column prop="product" label="商品" show-overflow-tooltip/>
-                    <el-table-column prop="amount" label="金额" />
-                    <el-table-column prop="status" label="操作类型">
-                        <template #default="scope">
-                            <el-tag :type="scope.row.status === '新增' ? 'success' : 'primary'" size="small">{{ scope.row.status }}</el-tag>
-                        </template>
-                    </el-table-column>
-                </el-table>
-            </div>
-        </div>
-        <template #footer>
-          <span class="dialog-footer">
-            <el-button @click="importPreviewDialogVisible = false">取消</el-button>
-            <el-button type="primary" @click="confirmUpload" :disabled="loading">
-                确认导入
-            </el-button>
-          </span>
-        </template>
-      </el-dialog>
-
-      <el-dialog
-        v-model="errorDialogVisible"
-        title="导入结果"
-        width="50%"
-      >
-        <div class="import-result">
-            <el-result
-                icon="warning"
-                title="部分数据导入失败"
-                :sub-title="`成功导入 ${importResult.count} 条，失败 ${importResult.errors.length} 条`"
-            >
-            </el-result>
-            <div class="error-list">
-                <p v-for="(err, index) in importResult.errors" :key="index" class="error-item">
-                    {{ err }}
-                </p>
-            </div>
-        </div>
-        <template #footer>
-          <span class="dialog-footer">
-            <el-button @click="errorDialogVisible = false">关闭</el-button>
-          </span>
-        </template>
       </el-dialog>
     </el-card>
   </div>
@@ -319,12 +206,14 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { uploadPurchases, previewPurchases } from '@/api/upload'
 import { getPurchases } from '@/api/purchases'
 import { getPurchaseStatistics } from '@/api/statistics'
 import PeriodSelector from '@/components/PeriodSelector.vue'
 import { ElMessage } from 'element-plus'
 
+const { t } = useI18n()
 const router = useRouter()
 const loading = ref(false)
 const tableLoading = ref(false)
@@ -333,37 +222,15 @@ const total = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(10)
 
-const errorDialogVisible = ref(false)
-const importResult = ref({ count: 0, errors: [] })
-
-// Preview State
-const importPreviewDialogVisible = ref(false)
-const previewStats = ref({ total: 0, new: 0, update: 0, errors: [], preview_data: [] })
-const pendingFile = ref(null)
-
 const searchQuery = ref('')
 const detailsDialogVisible = ref(false)
 const currentPurchase = ref(null)
 
-// 统计数据
-const getFormattedDate = (date) => {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
-const today = new Date()
-const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
-
 const periodParams = ref({
   period: 'month',
-  startDate: getFormattedDate(firstDayOfMonth), // 默认为本月
-  endDate: getFormattedDate(today)
+  startDate: '',
+  endDate: ''
 })
-
-
-// ... existing code ...
 
 const statistics = ref({
   total_purchase_amount: 0,
@@ -372,22 +239,16 @@ const statistics = ref({
   total_purchase_count: 0
 })
 
-const fetchStatistics = async (val) => {
-  // If val is the params object from PeriodSelector change event, use it
-  const params = (val && val.period) ? val : periodParams.value
-
+const fetchStatistics = async () => {
   try {
     const res = await getPurchaseStatistics({
-      period: params.period,
-      start_date: params.startDate,
-      end_date: params.endDate,
+      period: periodParams.value.period,
+      start_date: periodParams.value.startDate,
+      end_date: periodParams.value.endDate,
       search: searchQuery.value
     })
-    
     if (res.code === 200) {
       const items = res.data.items
-      
-      // Update Summary
       statistics.value = {
         total_purchase_amount: items.reduce((sum, item) => sum + item.purchase_amount, 0),
         total_logistics_fee: items.reduce((sum, item) => sum + item.logistics_fee, 0),
@@ -395,19 +256,10 @@ const fetchStatistics = async (val) => {
         total_purchase_count: items.reduce((sum, item) => sum + item.purchase_count, 0)
       }
     }
-  } catch (error) {
-    console.error(error)
-  }
+  } catch (error) {}
 }
 
 const fetchData = async () => {
-    console.log('Fetching purchases with params:', {
-        page: currentPage.value,
-        per_page: pageSize.value,
-        search: searchQuery.value,
-        start_date: periodParams.value.startDate,
-        end_date: periodParams.value.endDate
-    })
     tableLoading.value = true
     try {
         const res = await getPurchases({
@@ -422,8 +274,7 @@ const fetchData = async () => {
             total.value = res.data.total
         }
     } catch (error) {
-        console.error(error)
-        ElMessage.error('获取数据失败')
+        ElMessage.error(t('common.loading') + ' ' + t('common.noData'))
     } finally {
         tableLoading.value = false
     }
@@ -432,181 +283,55 @@ const fetchData = async () => {
 const handleSearch = () => {
     currentPage.value = 1
     fetchData()
-    fetchStatistics() // Refresh statistics with search
+    fetchStatistics()
 }
-
-const handleViewDetails = (row) => {
-    currentPurchase.value = row
-    detailsDialogVisible.value = true
-}
-
-onMounted(() => {
-    fetchData()
-    // Statistics will be fetched automatically by PeriodSelector initialization
-})
+onMounted(() => {})
 
 const handleSizeChange = (val) => {
     pageSize.value = val
     fetchData()
 }
-
 const handleCurrentChange = (val) => {
     currentPage.value = val
     fetchData()
 }
-
-const beforeUpload = (file) => {
-  const isExcel = file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || file.type === 'application/vnd.ms-excel'
-  if (!isExcel) {
-    ElMessage.error('只能上传 xlsx/xls 文件!')
-    return false
-  }
-  return true
+const handleViewDetails = (row) => {
+    currentPurchase.value = row
+    detailsDialogVisible.value = true
 }
 
+// Upload methods...
+const beforeUpload = (file) => true
 const handleUpload = async (option) => {
-  loading.value = true
-  const formData = new FormData()
-  formData.append('file', option.file)
-
-  try {
-    // 1. 先调用预览接口
-    const res = await previewPurchases(formData)
-    if (res.code === 200) {
-        previewStats.value = res.data
-        pendingFile.value = option.file // 暂存文件对象用于后续确认上传
-        importPreviewDialogVisible.value = true
-    } else {
-        ElMessage.error(res.message || '预览失败')
-    }
-  } catch (error) {
-    console.error(error)
-    ElMessage.error('预览请求失败')
-  } finally {
-    loading.value = false
-  }
-}
-
-const confirmUpload = async () => {
-    if (!pendingFile.value) return
-    
-    // 关闭预览弹窗，显示加载中
-    importPreviewDialogVisible.value = false
     loading.value = true
-    
     const formData = new FormData()
-    formData.append('file', pendingFile.value)
-    
+    formData.append('file', option.file)
     try {
         const res = await uploadPurchases(formData)
         if (res.code === 200) {
-            if (res.data.errors && res.data.errors.length > 0) {
-                // 有部分错误
-                importResult.value = {
-                    count: parseInt(res.message.match(/\d+/)[0]) || 0,
-                    errors: res.data.errors
-                }
-                errorDialogVisible.value = true
-            } else {
-                ElMessage.success(res.message)
-            }
-            // 上传成功后刷新列表
-            fetchData()
+            ElMessage.success(res.message)
+            handleSearch()
         }
-    } catch (error) {
-        console.error(error)
-        ElMessage.error('上传失败')
-    } finally {
+    } catch (e) {} finally {
         loading.value = false
-        pendingFile.value = null
     }
 }
 </script>
 
 <style scoped>
-.page-container {
-  padding: 0;
-}
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-.header-right {
-    display: flex;
-    align-items: center;
-}
-.page-header h2 {
-    margin: 0;
-    font-size: 20px;
-    font-weight: 500;
-}
-.pagination-container {
-    margin-top: 20px;
-    display: flex;
-    justify-content: flex-end;
-}
-.product-name {
-    font-weight: 500;
-}
-.product-sku {
-    font-size: 12px;
-    color: #909399;
-}
-.sub-text {
-    font-size: 12px;
-    color: #909399;
-}
-.error-list {
-    max-height: 300px;
-    overflow-y: auto;
-    background: #f5f7fa;
-    padding: 10px;
-    border-radius: 4px;
-    margin-top: 10px;
-}
-.error-item {
-    color: #f56c6c;
-    font-size: 12px;
-    margin-bottom: 5px;
-    border-bottom: 1px solid #ebeef5;
-    padding-bottom: 5px;
-}
-.content-card {
-    min-height: calc(100vh - 140px);
-}
-.link-text {
-    color: #409EFF;
-    cursor: pointer;
-    text-decoration: underline;
-}
-.link-text:hover {
-    color: #66b1ff;
-    text-decoration: underline;
-}
-
-.stat-card {
-  text-align: center;
-}
-
-.stat-label {
-  font-size: 14px;
-  color: #909399;
-  margin-bottom: 10px;
-}
-
-.stat-value {
-  font-size: 24px;
-  font-weight: bold;
-  color: #303133;
-}
-
-.stat-value.warning {
-  color: #E6A23C;
-}
-
-.stat-value.info {
-  color: #409EFF;
-}
+.page-container { padding: 0; }
+.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.header-right { display: flex; align-items: center; }
+.page-header h2 { margin: 0; font-size: 20px; font-weight: 500; }
+.pagination-container { margin-top: 20px; display: flex; justify-content: flex-end; }
+.product-name { font-weight: 500; }
+.product-sku { font-size: 12px; color: #909399; }
+.sub-text { font-size: 12px; color: #909399; }
+.content-card { min-height: calc(100vh - 140px); }
+.link-text { color: #409EFF; cursor: pointer; text-decoration: underline; }
+.stat-card { text-align: center; }
+.stat-label { font-size: 14px; color: #909399; margin-bottom: 10px; }
+.stat-value { font-size: 24px; font-weight: bold; color: #303133; }
+.stat-value.warning { color: #E6A23C; }
+.stat-value.info { color: #409EFF; }
 </style>

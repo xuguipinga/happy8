@@ -6,6 +6,28 @@ from sqlalchemy import desc
 from app.middleware import require_auth
 from flask import g
 
+STATUS_MAP = {
+    'Pending': ['待买家付款'],
+    'Paid': ['待卖家发货'],
+    'Shipped': ['待买家确认收货', '发货中'],
+    'Completed': ['订单完成'],
+    'Cancelled': ['订单关闭']
+}
+
+def map_statuses(status_param):
+    """将前端传来的英文状态转换为数据库中的中文状态"""
+    if not status_param:
+        return None
+    
+    frontend_statuses = [s for s in status_param.split(',') if s]
+    db_statuses = []
+    for s in frontend_statuses:
+        if s in STATUS_MAP:
+            db_statuses.extend(STATUS_MAP[s])
+        else:
+            db_statuses.append(s)
+    return db_statuses
+
 @api.route('/orders', methods=['GET'])
 @require_auth
 def get_orders():
@@ -44,9 +66,9 @@ def get_orders():
     # 高级筛选: 订单状态
     status_param = request.args.get('order_status')
     if status_param:
-        statuses = [s for s in status_param.split(',') if s]
-        if statuses:
-            query = query.filter(Order.order_status.in_(statuses))
+        db_statuses = map_statuses(status_param)
+        if db_statuses:
+            query = query.filter(Order.order_status.in_(db_statuses))
     
     # 步骤2: 获取满足条件的“唯一订单号”列表，按最新下单时间排序
     from sqlalchemy import func
@@ -181,42 +203,14 @@ def get_orders_kpi():
     search = request.args.get('search')
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
+    status_param = request.args.get('order_status')
     
     try:
-        # 如果提供了日期范围，则使用范围，否则默认为今日
-        if start_date and end_date:
-            start_of_day = datetime.strptime(start_date, '%Y-%m-%d')
-            end_of_day = datetime.strptime(end_date, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
-        else:
-            today = date.today()
-            start_of_day = datetime.combine(today, time.min)
-            end_of_day = datetime.combine(today, time.max)
+        # 基础查询（租户隔离）
+        # 这里使用 with_entities(Order.id) 是为了后续子查询高效，但统计时我们需要 platform_order_no
+        base_query = Order.query.filter(Order.tenant_id == tenant_id)
         
-        # 1. 今日订单数 - 添加租户过滤
-        today_orders_query = Order.query.filter(
-            Order.tenant_id == tenant_id,
-            Order.order_time >= start_of_day, 
-            Order.order_time <= end_of_day
-        )
-        
-        # 2. 今日销售额 (sum order_amount) - 添加租户过滤
-        today_sales_query = db.session.query(func.sum(Order.order_amount)).filter(
-            Order.tenant_id == tenant_id,
-            Order.order_time >= start_of_day, 
-            Order.order_time <= end_of_day
-        )
-        
-        # 3. 今日毛利 (sum profit) - 添加租户过滤
-        today_profit_query = db.session.query(func.sum(Order.profit)).filter(
-            Order.tenant_id == tenant_id,
-            Order.order_time >= start_of_day, 
-            Order.order_time <= end_of_day
-        )
-        
-        # 4. 累计订单数 - 添加租户过滤
-        total_orders_query = Order.query.filter_by(tenant_id=tenant_id)
-        
-        # 应用搜索过滤
+        # 应用全局搜索过滤 (search & status)
         if search:
             search_term = f"%{search}%"
             search_filter = (
@@ -227,19 +221,47 @@ def get_orders_kpi():
                 (Order.company_name.like(search_term)) |
                 (Order.buyer_email.like(search_term))
             )
-            today_orders_query = today_orders_query.filter(search_filter)
-            today_sales_query = today_sales_query.filter(search_filter)
-            today_profit_query = today_profit_query.filter(search_filter)
-            total_orders_query = total_orders_query.filter(search_filter)
+            base_query = base_query.filter(search_filter)
             
-        today_orders_count = today_orders_query.with_entities(func.count(Order.platform_order_no.distinct())).scalar() or 0
-        today_sales_result = today_sales_query.scalar()
-        today_sales = float(today_sales_result) if today_sales_result else 0.0
+        if status_param:
+            db_statuses = map_statuses(status_param)
+            if db_statuses:
+                base_query = base_query.filter(Order.order_status.in_(db_statuses))
+
+        # --- 1. “本期”统计 (针对日期范围或今日) ---
+        if start_date and end_date:
+            start_of_period = datetime.strptime(start_date, '%Y-%m-%d')
+            end_of_period = datetime.strptime(end_date, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
+        else:
+            today = date.today()
+            start_of_period = datetime.combine(today, time.min)
+            end_of_period = datetime.combine(today, time.max)
+            
+        period_query = base_query.filter(Order.order_time >= start_of_period, Order.order_time <= end_of_period)
         
-        today_profit_result = today_profit_query.scalar()
-        today_profit = float(today_profit_result) if today_profit_result else 0.0
+        # 执行本期汇总 (使用子查询避免 group by 导致的 count 偏差)
+        period_subq = period_query.with_entities(Order.id).subquery()
+        period_stats = db.session.query(
+            func.count(Order.platform_order_no.distinct()),
+            func.sum(Order.order_amount),
+            func.sum(Order.profit)
+        ).filter(Order.id.in_(period_subq)).first()
         
-        total_orders_count = total_orders_query.with_entities(func.count(Order.platform_order_no.distinct())).scalar() or 0
+        today_orders_count = period_stats[0] or 0
+        today_sales = float(period_stats[1]) if period_stats[1] else 0.0
+        today_profit = float(period_stats[2]) if period_stats[2] else 0.0
+        
+        # --- 2. “累计”统计 (仅受搜索和状态过滤，不受日期影响) ---
+        total_subq = base_query.with_entities(Order.id).subquery()
+        total_stats = db.session.query(
+            func.count(Order.platform_order_no.distinct()),
+            func.sum(Order.order_amount),
+            func.sum(Order.profit)
+        ).filter(Order.id.in_(total_subq)).first()
+        
+        total_orders_count = total_stats[0] or 0
+        total_sales = float(total_stats[1]) if total_stats[1] else 0.0
+        total_profit = float(total_stats[2]) if total_stats[2] else 0.0
         
         return jsonify({
             'code': 200,
@@ -247,8 +269,12 @@ def get_orders_kpi():
                 'today_orders': today_orders_count,
                 'today_sales': today_sales,
                 'today_profit': today_profit,
-                'total_orders': total_orders_count
+                'total_orders': total_orders_count,
+                'total_sales': total_sales,
+                'total_profit': total_profit
             }
         })
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({'code': 500, 'message': str(e)}), 500

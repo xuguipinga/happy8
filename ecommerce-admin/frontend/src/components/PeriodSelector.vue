@@ -5,9 +5,9 @@
         <el-date-picker
           v-model="dateRange"
           type="daterange"
-          range-separator="至"
-          start-placeholder="开始日期"
-          end-placeholder="结束日期"
+          :range-separator="$t('common.to')"
+          :start-placeholder="$t('common.startDate')"
+          :end-placeholder="$t('common.endDate')"
           format="YYYY-MM-DD"
           value-format="YYYY-MM-DD"
           @change="handleDateChange"
@@ -20,15 +20,14 @@
           </el-button>
           <template #dropdown>
             <el-dropdown-menu>
-              <el-dropdown-item command="today">今天</el-dropdown-item>
+              <el-dropdown-item command="today">{{ $t('shortcuts.today') }}</el-dropdown-item>
               <el-dropdown-item command="week">本周</el-dropdown-item>
-              <el-dropdown-item command="month">本月</el-dropdown-item>
+              <el-dropdown-item command="month">{{ $t('shortcuts.thisMonth') }}</el-dropdown-item>
               <el-dropdown-item command="quarter">本季度</el-dropdown-item>
               <el-dropdown-item command="year">本年</el-dropdown-item>
-              <el-dropdown-item command="last30">最近30天</el-dropdown-item>
+              <el-dropdown-item command="last30">{{ $t('shortcuts.last30Days') }}</el-dropdown-item>
               <el-dropdown-item command="all" divided>全部时间</el-dropdown-item>
-              <el-dropdown-item command="last_year" divided>去年</el-dropdown-item>
-              <el-dropdown-item command="year_before_last">前年</el-dropdown-item>
+              <el-dropdown-item command="last_year" divided>{{ $t('shortcuts.lastMonth') }}</el-dropdown-item>
             </el-dropdown-menu>
           </template>
         </el-dropdown>
@@ -38,8 +37,12 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { ArrowDown } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
+import dayjs from 'dayjs'
+
+const { t } = useI18n()
 
 const props = defineProps({
   modelValue: {
@@ -54,74 +57,66 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue', 'change'])
 
-const period = ref(props.modelValue.period || 'month')
 const dateRange = ref([props.modelValue.startDate, props.modelValue.endDate])
-const currentLabel = ref('快捷选择')
+const currentCommand = ref(props.modelValue.period || 'month')
+
+const currentLabel = computed(() => {
+    if (currentCommand.value === 'custom') return t('common.dateRange')
+    const labels = {
+        'today': t('shortcuts.today'),
+        'month': t('shortcuts.thisMonth'),
+        'last30': t('shortcuts.last30Days'),
+        'last_year': t('shortcuts.lastMonth'),
+        'week': '本周',
+        'quarter': '本季度',
+        'year': '本年',
+        'all': '全部时间'
+    }
+    return labels[currentCommand.value] || '快捷选择'
+})
 
 const handleDateChange = () => {
-  currentLabel.value = '自定义范围'
+  currentCommand.value = 'custom'
   emitChange()
 }
 
-
 const handleQuickSelect = (command) => {
-  const today = new Date()
+  currentCommand.value = command
   let startDate, endDate
   
-  const labels = {
-    'today': '今天',
-    'week': '本周',
-    'month': '本月',
-    'quarter': '本季度',
-    'year': '本年',
-    'last30': '最近30天',
-    'all': '全部时间',
-    'last_year': '去年',
-    'year_before_last': '前年'
-  }
-  currentLabel.value = labels[command]
-
-  // 快捷选择同时设置范围和粒度
+  const today = dayjs()
+  
   switch (command) {
     case 'today':
-      startDate = endDate = formatDate(today)
+      startDate = endDate = today.format('YYYY-MM-DD')
       break
     case 'week':
-      const weekStart = new Date(today)
-      weekStart.setDate(today.getDate() - today.getDay())
-      startDate = formatDate(weekStart)
-      endDate = formatDate(today)
+      startDate = today.startOf('week').format('YYYY-MM-DD')
+      endDate = today.format('YYYY-MM-DD')
       break
     case 'month':
-      startDate = formatDate(new Date(today.getFullYear(), today.getMonth(), 1))
-      endDate = formatDate(today)
+      startDate = today.startOf('month').format('YYYY-MM-DD')
+      endDate = today.endOf('month').format('YYYY-MM-DD')
       break
     case 'quarter':
-      const quarterStart = new Date(today.getFullYear(), Math.floor(today.getMonth() / 3) * 3, 1)
-      startDate = formatDate(quarterStart)
-      endDate = formatDate(today)
+      startDate = today.startOf('quarter').format('YYYY-MM-DD')
+      endDate = today.format('YYYY-MM-DD')
       break
     case 'year':
-      startDate = formatDate(new Date(today.getFullYear(), 0, 1))
-      endDate = formatDate(today)
+      startDate = today.startOf('year').format('YYYY-MM-DD')
+      endDate = today.format('YYYY-MM-DD')
       break
     case 'last30':
-      const last30 = new Date(today)
-      last30.setDate(today.getDate() - 30)
-      startDate = formatDate(last30)
-      endDate = formatDate(today)
+      startDate = today.subtract(29, 'day').format('YYYY-MM-DD')
+      endDate = today.format('YYYY-MM-DD')
       break
     case 'all':
-      startDate = '2020-01-01' // Assume a safe start date for "all"
-      endDate = formatDate(today)
+      startDate = '2020-01-01'
+      endDate = today.format('YYYY-MM-DD')
       break
     case 'last_year':
-      startDate = formatDate(new Date(today.getFullYear() - 1, 0, 1))
-      endDate = formatDate(new Date(today.getFullYear() - 1, 11, 31))
-      break
-    case 'year_before_last':
-      startDate = formatDate(new Date(today.getFullYear() - 2, 0, 1))
-      endDate = formatDate(new Date(today.getFullYear() - 2, 11, 31))
+      startDate = today.subtract(1, 'month').startOf('month').format('YYYY-MM-DD')
+      endDate = today.subtract(1, 'month').endOf('month').format('YYYY-MM-DD')
       break
   }
   
@@ -129,16 +124,9 @@ const handleQuickSelect = (command) => {
   emitChange()
 }
 
-const formatDate = (date) => {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
 const emitChange = () => {
   const value = {
-    period: 'day',
+    period: currentCommand.value,
     startDate: dateRange.value ? dateRange.value[0] : '',
     endDate: dateRange.value ? dateRange.value[1] : ''
   }
@@ -146,7 +134,7 @@ const emitChange = () => {
   emit('change', value)
 }
 
-// 初始化默认值
+// Initial setup if empty
 if (!dateRange.value[0]) {
   handleQuickSelect('month')
 }

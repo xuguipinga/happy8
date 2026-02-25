@@ -27,7 +27,11 @@ with app.app_context():
     users = User.query.all()
     print(f"Users: {[(u.id, u.username, u.tenant_id) for u in users]}")
     
-    # 5. Check order_time range for today
+    # 5. Distribution of order_status
+    status_dist = db.session.query(Order.order_status, func.count(Order.id)).group_by(Order.order_status).all()
+    print(f"Order distribution by order_status: {status_dist}")
+    
+    # 6. Check order_time range for today
     from datetime import date, time, datetime
     today = date.today()
     start_of_day = datetime.combine(today, time.min)

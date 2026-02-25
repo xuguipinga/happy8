@@ -1,0 +1,100 @@
+{
+    "common": {
+        "search": "搜索",
+        "reset": "重置",
+        "export": "导出",
+        "import": "导入",
+        "refresh": "刷新",
+        "details": "详情",
+        "operation": "操作",
+        "confirm": "确认",
+        "cancel": "取消",
+        "save": "保存",
+        "delete": "删除",
+        "dateRange": "日期范围",
+        "startDate": "开始日期",
+        "endDate": "结束日期",
+        "to": "至",
+        "loading": "加载中",
+        "status": "状态",
+        "noData": "暂无数据"
+    },
+    "orders": {
+        "title": "订单管理",
+        "platformOrderNo": "平台订单号",
+        "orderNo": "订单号",
+        "orderTime": "下单时间",
+        "productInfo": "商品信息",
+        "sku": "SKU",
+        "unitPrice": "单价",
+        "quantity": "数量",
+        "amountDetails": "金额详情",
+        "orderAmount": "总价",
+        "actualPaid": "实付",
+        "taxFee": "税费",
+        "costAndProfit": "成本与利润",
+        "purchaseCost": "采购",
+        "logisticsCost": "物流",
+        "grossProfit": "毛利",
+        "buyer": "买家",
+        "country": "国家",
+        "appointedDelivery": "约定发货",
+        "actualDelivery": "实际发货",
+        "recalculateProfit": "重算利润",
+        "importExcel": "导入销售订单 (Excel)",
+        "kpi": {
+            "todayOrders": "今日订单/所选期间订单",
+            "todaySales": "今日销售额/所选期间销售额",
+            "todayProfit": "今日毛利/所选期间毛利",
+            "totalOrders": "累计订单",
+            "totalSales": "全部销售额",
+            "totalProfit": "全部毛利"
+        },
+        "status": {
+            "Pending": "待付款",
+            "Paid": "待发货",
+            "Shipped": "已发货",
+            "Completed": "已完成",
+            "Cancelled": "已取消"
+        }
+    },
+    "logistics": {
+        "title": "物流管理",
+        "trackingNo": "运单号",
+        "refNo": "参考号/订单号",
+        "channel": "渠道信息",
+        "weight": "重量(kg)",
+        "fee": "费用",
+        "sentDate": "发货日期",
+        "importExcel": "导入物流单 (Excel)",
+        "stats": {
+            "totalFee": "物流总费用",
+            "count": "物流单数",
+            "avgFee": "平均物流费"
+        }
+    },
+    "purchases": {
+        "title": "采购管理",
+        "purchaseNo": "采购单号",
+        "productInfo": "商品信息",
+        "purchaseInfo": "采购信息",
+        "fee": "费用",
+        "supplier": "供应商",
+        "logistics": "物流/收货",
+        "importExcel": "导入采购单 (Excel)",
+        "stats": {
+            "amount": "采购总额",
+            "logisticsFee": "采购物流费",
+            "totalCost": "采购总成本",
+            "count": "采购单数"
+        }
+    },
+    "shortcuts": {
+        "today": "今天",
+        "yesterday": "昨天",
+        "last7Days": "最近7天",
+        "last30Days": "最近30天",
+        "thisMonth": "本月",
+        "lastMonth": "上月"
+    }
+}
