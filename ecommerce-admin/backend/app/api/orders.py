@@ -11,7 +11,14 @@ STATUS_MAP = {
     'Paid': ['待卖家发货'],
     'Shipped': ['待买家确认收货', '发货中'],
     'Completed': ['订单完成'],
-    'Cancelled': ['订单关闭']
+    'Cancelled': ['订单关闭'],
+    # 新增 Tab 对应的映射
+    'pending': ['待买家付款'],
+    'paid': ['待卖家发货'],
+    'shipped': ['待买家确认收货', '发货中'],
+    'closed': ['订单完成', '订单关闭'],
+    'confirming': [],
+    'refund': []
 }
 
 def map_statuses(status_param):
@@ -263,6 +270,38 @@ def get_orders_kpi():
         total_sales = float(total_stats[1]) if total_stats[1] else 0.0
         total_profit = float(total_stats[2]) if total_stats[2] else 0.0
         
+        # --- 3. 不同状态的订单数量 (Tab Badge) ---
+        # 统计逻辑应遵循除了状态以外的所有过滤条件 (search & date)
+        status_counts = {}
+        target_keys = ['confirming', 'pending', 'paid', 'shipped', 'refund', 'closed']
+        
+        # 为了效率，我们查一次数据库获取所有符合当前搜索/日期条件的分布
+        # 再在内存中根据 STATUS_MAP 聚合
+        
+        # 基础条件：租户 + 搜索 + 日期
+        count_query = db.session.query(
+            Order.order_status, 
+            func.count(Order.platform_order_no.distinct())
+        ).filter(Order.tenant_id == tenant_id)
+        
+        if search:
+            count_query = count_query.filter(search_filter)
+        
+        if start_date and end_date:
+            count_query = count_query.filter(Order.order_time >= start_of_period, Order.order_time <= end_of_period)
+        
+        # 按照状态分组统计唯一订单号
+        status_data = count_query.group_by(Order.order_status).all()
+        raw_counts = {item[0]: item[1] for item in status_data}
+        
+        # 聚合到 Tab 对应的分类中
+        for key in target_keys:
+            mapped_statuses = STATUS_MAP.get(key, [])
+            count = 0
+            for ms in mapped_statuses:
+                count += raw_counts.get(ms, 0)
+            status_counts[key] = count
+            
         return jsonify({
             'code': 200,
             'data': {
@@ -271,7 +310,8 @@ def get_orders_kpi():
                 'today_profit': today_profit,
                 'total_orders': total_orders_count,
                 'total_sales': total_sales,
-                'total_profit': total_profit
+                'total_profit': total_profit,
+                'status_counts': status_counts
             }
         })
     except Exception as e:
