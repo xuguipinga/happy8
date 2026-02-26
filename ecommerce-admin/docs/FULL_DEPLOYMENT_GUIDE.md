@@ -178,11 +178,28 @@ docker exec ecommerce_db mysqldump -u root -p<密码> ecommerce_admin > backup.s
 ```
 
 ### Q3: 代码更新后如何生效？
-```bash
-git pull
-docker-compose -f docker-compose.prod.yml up -d --build frontend backend
-# 只需重新构建应用容器，数据库和Redis通常无需重启
-```
+
+由于云服务器内存有限，我们不在服务器上进行编译构建。您需要**在本地电脑完成打包**后同步。
+
+**步骤：**
+1.  **本地前端打包** (在本地 `frontend` 目录执行):
+    ```bash
+    npm run build
+    ```
+2.  **提交并推送 `dist` 目录**:
+    ```bash
+    git add frontend/dist
+    git commit -m "Update frontend build"
+    git push
+    ```
+3.  **服务器拉取并重启**:
+    ```bash
+    # 在服务器项目根目录
+    git pull
+    # 重启容器以加载最新的 dist 文件
+    docker-compose -f docker-compose.prod.yml up -d --build frontend backend
+    ```
+
 
 ### Q4: 端口冲突怎么办？
 修改 `docker-compose.prod.yml` 中的 `ports` 映射。例如将 `80:80` 改为 `8081:80`，然后重启容器。
