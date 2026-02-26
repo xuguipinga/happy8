@@ -15,7 +15,6 @@
                 style="margin-right: 10px; width: 260px;"
                 @change="handleSearch"
              />
-              />
               <!-- 移除原有的多选 Select，改为由 Tab 控制 -->
              <el-input
                 v-model="searchQuery"
