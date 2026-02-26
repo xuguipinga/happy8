@@ -56,6 +56,15 @@
             "Shipped": "已发货",
             "Completed": "已完成",
             "Cancelled": "已取消"
+        },
+        "tabs": {
+            "all": "全部",
+            "confirming": "确认中",
+            "pending": "待支付",
+            "paid": "准备发货",
+            "shipped": "运输中",
+            "refund": "退款和售后",
+            "closed": "已完成/已关闭"
         }
     },
     "logistics": {

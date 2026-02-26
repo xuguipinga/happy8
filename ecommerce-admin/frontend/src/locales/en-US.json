@@ -56,6 +56,15 @@
             "Shipped": "Shipped",
             "Completed": "Completed",
             "Cancelled": "Cancelled"
+        },
+        "tabs": {
+            "all": "All",
+            "confirming": "Confirming",
+            "pending": "Pending Payment",
+            "paid": "Paid",
+            "shipped": "Shipped",
+            "refund": "Refund",
+            "closed": "Completed/Closed"
         }
     },
     "logistics": {

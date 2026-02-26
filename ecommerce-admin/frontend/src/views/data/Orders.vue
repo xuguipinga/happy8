@@ -15,17 +15,8 @@
                 style="margin-right: 10px; width: 260px;"
                 @change="handleSearch"
              />
-             <el-select
-                v-model="filterStatus"
-                multiple
-                collapse-tags
-                :placeholder="$t('common.status')"
-                style="width: 180px; margin-right: 10px;"
-                @change="handleSearch"
-                clearable
-             >
-                <el-option v-for="key in ['Pending', 'Paid', 'Shipped', 'Completed', 'Cancelled']" :key="key" :label="$t(`orders.status.${key}`)" :value="key" />
-             </el-select>
+              />
+              <!-- 移除原有的多选 Select，改为由 Tab 控制 -->
              <el-input
                 v-model="searchQuery"
                 :placeholder="$t('common.search') + '...'"
@@ -62,6 +53,30 @@
             </el-button>
         </div>
       </div>
+    </div>
+
+    <!-- 状态切换 Tab -->
+    <div class="tabs-container">
+        <el-tabs v-model="activeTab" @tab-change="handleTabChange">
+            <el-tab-pane name="all">
+                <template #label>
+                    <span class="tab-label">
+                        {{ $t('orders.tabs.all') }}
+                        <span class="tab-count" v-if="kpiData.total_orders > 0">{{ kpiData.total_orders > 99 ? '99+' : kpiData.total_orders }}</span>
+                    </span>
+                </template>
+            </el-tab-pane>
+            <el-tab-pane v-for="key in ['confirming', 'pending', 'paid', 'shipped', 'refund', 'closed']" :key="key" :name="key">
+                <template #label>
+                    <span class="tab-label">
+                        {{ $t(`orders.tabs.${key}`) }}
+                        <span class="tab-count" v-if="kpiData.status_counts?.[key] > 0">
+                            {{ kpiData.status_counts[key] > 99 ? '99+' : kpiData.status_counts[key] }}
+                        </span>
+                    </span>
+                </template>
+            </el-tab-pane>
+        </el-tabs>
     </div>
 
     <!-- KPI 数据看板 -->
@@ -326,8 +341,21 @@ const kpiData = ref({
     today_profit: 0,
     total_orders: 0,
     total_sales: 0,
-    total_profit: 0
+    total_profit: 0,
+    status_counts: {}
 })
+
+const activeTab = ref('all')
+
+const handleTabChange = (name) => {
+    activeTab.value = name
+    if (name === 'all') {
+        filterStatus.value = []
+    } else {
+        filterStatus.value = [name]
+    }
+    handleSearch()
+}
 
 const fetchData = async () => {
     tableLoading.value = true
@@ -480,6 +508,23 @@ const handleUpload = async (option) => {
 }
 .header-right { display: flex; align-items: center; }
 .page-header h2 { margin: 0; font-size: 20px; font-weight: 500; }
+.tabs-container {
+    background: #fff;
+    margin-bottom: 20px;
+    padding: 0 20px;
+    border-radius: 4px;
+}
+.tab-label {
+    display: flex;
+    align-items: center;
+    font-size: 15px;
+}
+.tab-count {
+    margin-left: 4px;
+    color: #409EFF;
+    font-weight: bold;
+    font-size: 13px;
+}
 .pagination-container { margin-top: 20px; display: flex; justify-content: flex-end; }
 .product-name { font-weight: 500; }
 .product-sku { font-size: 12px; color: #909399; }
