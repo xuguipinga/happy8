@@ -9,7 +9,8 @@ class Product(db.Model):
     name = db.Column(db.String(255))
     avg_cost_price = db.Column(db.Numeric(12, 4), default=0)
     latest_purchase_price = db.Column(db.Numeric(12, 4), default=0)
-    stock_qty = db.Column(db.Numeric(12, 4), default=0)
+    landed_cost = db.Column(db.Numeric(12, 4), default=0.0, comment='落地成本(含运费)')
+    platform_fee_rate = db.Column(db.Numeric(5, 4), default=0.0, comment='平台费率')
 
     def __repr__(self):
         return f'<Product {self.sku}>'

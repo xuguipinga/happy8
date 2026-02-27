@@ -1,6 +1,18 @@
 from datetime import datetime
 from app.extensions import db
 
+class OrderPurchaseLink(db.Model):
+    __tablename__ = 'biz_order_purchase_links'
+    
+    id = db.Column(db.BigInteger().with_variant(db.Integer, "sqlite"), primary_key=True, autoincrement=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey('sys_tenants.id'), nullable=False)
+    order_id = db.Column(db.BigInteger, db.ForeignKey('biz_orders.id'), nullable=False)
+    purchase_id = db.Column(db.BigInteger, db.ForeignKey('biz_purchases.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Relationships
+    purchase = db.relationship('Purchase', backref=db.backref('order_links', cascade='all, delete-orphan'))
+
 class Order(db.Model):
     __tablename__ = 'biz_orders'
 
@@ -42,6 +54,9 @@ class Order(db.Model):
     logistics_cost = db.Column(db.Numeric(12, 4), default=0.0, comment='物流支出')
     profit = db.Column(db.Numeric(12, 4), comment='毛利')
     profit_rate = db.Column(db.Numeric(10, 4), default=0.0, comment='利润率')
+    
+    # Relationships
+    purchase_links = db.relationship('OrderPurchaseLink', backref='order', cascade='all, delete-orphan')
 
     def __repr__(self):
         return f'<Order {self.platform_order_no}>'

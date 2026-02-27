@@ -11,4 +11,4 @@ from app.api import analysis
 from app.api import tenants
 from app.api import profile
 from app.api import statistics
-
+from app.api import stock

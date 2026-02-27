@@ -1,6 +1,7 @@
 from flask import request, jsonify
 from app.api import api
-from app.models.order import Order
+from app.models.order import Order, OrderPurchaseLink
+from app.models.purchase import Purchase
 from app.extensions import db
 from sqlalchemy import desc
 from app.middleware import require_auth
@@ -18,7 +19,8 @@ STATUS_MAP = {
     'shipped': ['待买家确认收货', '发货中'],
     'closed': ['订单完成', '订单关闭'],
     'confirming': [],
-    'refund': []
+    'refund': [],
+    'unmatched': [] # 虚拟状态
 }
 
 def map_statuses(status_param):
@@ -72,7 +74,13 @@ def get_orders():
 
     # 高级筛选: 订单状态
     status_param = request.args.get('order_status')
-    if status_param:
+    if status_param == 'unmatched':
+        # 待匹配：状态为待发货/已发货/已完成，且未关联成本（金额为0且无映射记录）
+        active_statuses = STATUS_MAP['paid'] + STATUS_MAP['shipped'] + STATUS_MAP['closed']
+        query = query.filter(Order.order_status.in_(active_statuses))
+        query = query.filter((Order.cost_price == 0) | (Order.cost_price == None))
+        query = query.filter(~Order.purchase_links.any())
+    elif status_param:
         db_statuses = map_statuses(status_param)
         if db_statuses:
             query = query.filter(Order.order_status.in_(db_statuses))
@@ -301,6 +309,16 @@ def get_orders_kpi():
             for ms in mapped_statuses:
                 count += raw_counts.get(ms, 0)
             status_counts[key] = count
+        
+        # 统计待匹配数量 (虚拟分类)
+        unmatched_query = base_query.filter(Order.order_status.in_(STATUS_MAP['paid'] + STATUS_MAP['shipped'] + STATUS_MAP['closed']))
+        unmatched_query = unmatched_query.filter((Order.cost_price == 0) | (Order.cost_price == None))
+        unmatched_query = unmatched_query.filter(~Order.purchase_links.any())
+        
+        if start_date and end_date:
+            unmatched_query = unmatched_query.filter(Order.order_time >= start_of_period, Order.order_time <= end_of_period)
+            
+        status_counts['unmatched'] = db.session.query(func.count(Order.platform_order_no.distinct())).filter(Order.id.in_(unmatched_query.with_entities(Order.id).subquery())).scalar() or 0
             
         return jsonify({
             'code': 200,
@@ -317,4 +335,87 @@ def get_orders_kpi():
     except Exception as e:
         import traceback
         traceback.print_exc()
+        return jsonify({'code': 500, 'message': str(e)}), 500
+@api.route('/orders/<int:order_id>/link-purchases', methods=['POST'])
+@require_auth
+def link_order_purchases(order_id):
+    """手动关联采购单"""
+    data = request.json
+    purchase_ids = data.get('purchase_ids', [])
+    
+    if not purchase_ids:
+        return jsonify({'code': 400, 'message': '请选择采购单'}), 400
+        
+    order = Order.query.filter_by(id=order_id, tenant_id=g.tenant_id).first()
+    if not order:
+        return jsonify({'code': 404, 'message': '订单未找到'}), 404
+        
+    try:
+        count = 0
+        for p_id in purchase_ids:
+            # 检查采购单是否存在且属于同一租户
+            purchase = Purchase.query.filter_by(id=p_id, tenant_id=g.tenant_id).first()
+            if not purchase:
+                continue
+                
+            # 检查是否已关联
+            exists = OrderPurchaseLink.query.filter_by(order_id=order_id, purchase_id=p_id).first()
+            if not exists:
+                link = OrderPurchaseLink(
+                    tenant_id=g.tenant_id,
+                    order_id=order_id,
+                    purchase_id=p_id
+                )
+                db.session.add(link)
+                count += 1
+        
+        db.session.commit()
+        return jsonify({'code': 200, 'message': f'成功关联 {count} 条采购单'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'code': 500, 'message': str(e)}), 500
+
+@api.route('/orders/<int:order_id>/purchases', methods=['GET'])
+@require_auth
+def get_order_purchases(order_id):
+    """获取订单关联的采购单列表"""
+    links = OrderPurchaseLink.query.filter_by(order_id=order_id, tenant_id=g.tenant_id).all()
+    
+    items = []
+    for link in links:
+        p = link.purchase
+        items.append({
+            'id': p.id,
+            'purchase_no': p.purchase_no,
+            'product_name': p.product_name,
+            'sku': p.sku,
+            'quantity': float(p.quantity) if p.quantity else 0,
+            'actual_payment': float(p.actual_payment) if p.actual_payment else 0,
+            'create_time': p.create_time.strftime('%Y-%m-%d %H:%M:%S') if p.create_time else None
+        })
+        
+    return jsonify({
+        'code': 200,
+        'data': items
+    })
+
+@api.route('/orders/<int:order_id>/unlink-purchase/<int:purchase_id>', methods=['DELETE'])
+@require_auth
+def unlink_order_purchase(order_id, purchase_id):
+    """解除订单与采购单的关联"""
+    link = OrderPurchaseLink.query.filter_by(
+        order_id=order_id, 
+        purchase_id=purchase_id, 
+        tenant_id=g.tenant_id
+    ).first()
+    
+    if not link:
+        return jsonify({'code': 404, 'message': '关联不存在'}), 404
+        
+    try:
+        db.session.delete(link)
+        db.session.commit()
+        return jsonify({'code': 200, 'message': '解绑成功'})
+    except Exception as e:
+        db.session.rollback()
         return jsonify({'code': 500, 'message': str(e)}), 500

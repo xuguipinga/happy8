@@ -10,6 +10,8 @@ import logging
 logger = logging.getLogger(__name__)
 
 from decimal import Decimal, ROUND_HALF_UP
+from app.models.stock import Inventory, StockRecord
+from app.services.currency_service import CurrencyService
 
 class ExcelService:
     @staticmethod
@@ -40,6 +42,37 @@ class ExcelService:
             return Decimal('0.0')
         except:
             return Decimal('0.0')
+
+    @staticmethod
+    def _parse_sku_specification(sku_str):
+        """
+        从阿里 SKU 规格字符串中提取型号 (Model) 和规格 (Spec)
+        例如: "Color:Black-B002,Length:20 cm (7.87in)" -> ("B002", "20cm")
+        """
+        if not sku_str:
+            return None, None
+        
+        import re
+        model = None
+        spec = None
+        
+        # 提取型号: 通常是连字符后的部分，或者独立的字母数字组合 (如 B002, B025)
+        # 观察规律：型号通常在横杠 '-' 后面，或者在逗号前面
+        model_match = re.search(r'-([A-Z0-9]+)', sku_str) # 匹配 -B002
+        if model_match:
+            model = model_match.group(1)
+        else:
+            # 如果没找到横杠，尝试匹配独立的型号模式 (如 B001)
+            model_match = re.search(r'\b([A-Z]\d{3,})\b', sku_str)
+            if model_match:
+                model = model_match.group(1)
+        
+        # 提取规格 (长度): 匹配 "Length:XX cm" 
+        spec_match = re.search(r'Length:(\d+)\s*cm', sku_str, re.IGNORECASE)
+        if spec_match:
+            spec = f"{spec_match.group(1)}cm"
+            
+        return model, spec
 
     @staticmethod
     def _parse_str(value):
@@ -169,28 +202,93 @@ class ExcelService:
                     # 处理日期
                     order.actual_delivery_time = ExcelService._parse_date(row.get('实际发货时间(Actual Delivery Time)'))
                     
-                    # 成本与利润计算 (独立模式)
-                    if not order.cost_price or order.cost_price == 0:
-                        # 尝试从商品库获取平均成本
-                        if sku_val:
-                             product_for_cost = Product.query.filter_by(sku=sku_val, tenant_id=tenant_id).first()
-                             if product_for_cost and product_for_cost.avg_cost_price and product_for_cost.avg_cost_price > 0:
-                                 # cost_price 是本单总成本
-                                 order.cost_price = product_for_cost.avg_cost_price * (order.quantity or 0)
+                    # --- [智能库存关联与财务闭环逻辑] ---
+                    # 1. 解析 SKU 提取型号和规格
+                    model, spec = ExcelService._parse_sku_specification(sku_val)
+                    if model:
+                        # 查找关联的库存
+                        inventory = Inventory.query.filter_by(
+                            model=model, 
+                            spec=spec, 
+                            tenant_id=tenant_id
+                        ).first()
+                        
+                        # 如果库存不存在，自动初始化一个 (数量为0)
+                        if not inventory:
+                            inventory = Inventory(
+                                model=model, 
+                                spec=spec, 
+                                tenant_id=tenant_id,
+                                quantity=0
+                            )
+                            db.session.add(inventory)
+                            db.session.flush()
+
+                        # 记录并扣减库存: 仅针对状态为已付款或已发货的订单，且未扣减过
+                        paid_statuses = ['待卖家发货', '待买家确认收货', '发货中', '交易成功', '订单完成']
+                        
+                        # 判断是否已经生成过出库记录 (防止重复导入扣减)
+                        already_deducted = False
+                        if order.id:
+                            already_deducted = db.session.query(StockRecord.query.filter_by(order_id=order.id, record_type='OUT').exists()).scalar()
+                        
+                        if not already_deducted and order.order_status in paid_statuses and inventory.quantity > 0:
+                            qty_to_deduct = Decimal(str(order.quantity or 1))
+                            
+                            # 创建出库记录
+                            record = StockRecord(
+                                tenant_id=tenant_id,
+                                inventory_id=inventory.id,
+                                order_id=None, # 稍后在 flush 后关联
+                                record_type='OUT',
+                                change_quantity=-qty_to_deduct,
+                                balance_quantity=inventory.quantity - qty_to_deduct,
+                                unit_cost=inventory.avg_cost,
+                                remark=f"Order {platform_order_no} auto-deduction"
+                            )
+                            inventory.quantity -= qty_to_deduct
+                            db.session.add(record)
+                            # 注意：我们这里先不 commit，外层会统一 commit
+                            # 为了获取 order.id，我们需要在 add(order) 后关联
+                            order._pending_stock_record = record # 临时暂存，同步后处理
+
+                    # 2. 成本平衡 (计算毛利时考虑平台费)
+                    product_obj = Product.query.filter_by(sku=sku_val, tenant_id=tenant_id).first()
+                    platform_fee_rate = product_obj.platform_fee_rate if product_obj else Decimal('0.0')
                     
-                    # 计算毛利
-                    if order.actual_paid is not None:
+                    if not order.cost_price or order.cost_price == 0:
+                        if product_obj:
+                             # 优先使用 landed_cost (落地成本)
+                             effective_unit_cost = product_obj.landed_cost or product_obj.avg_cost_price or Decimal('0.0')
+                             order.cost_price = effective_unit_cost * (order.quantity or 0)
+                    
+                    # 计算毛利: (实收(CNY) * (1 - 平台费率)) - 成本 - 物流 - 税费
+                    if order.order_amount is not None:
+                        # 实收金额转换为人民币 (基于订单日期)
+                        actual_paid_cny = CurrencyService.convert_to_cny(
+                            order.actual_paid or order.order_amount, 
+                            order.currency or 'USD', 
+                            order.order_time
+                        )
+                        
                         cost_val = order.cost_price if order.cost_price else 0
                         logistics_val = order.logistics_cost if order.logistics_cost else 0
                         tax_val = order.tax_fee if order.tax_fee else 0
                         
-                        order.profit = order.actual_paid - cost_val - logistics_val - tax_val
+                        # 净收入 = 实收(CNY) * (1 - 平台费率)
+                        net_income = actual_paid_cny * (Decimal('1.0') - platform_fee_rate)
+                        order.profit = net_income - cost_val - logistics_val - tax_val
                         
                         if cost_val > 0:
                             order.profit_rate = order.profit / cost_val
                     
-                    
                     db.session.add(order)
+                    db.session.flush() # 获取 order.id
+                    
+                    # 关联库存流水
+                    if hasattr(order, '_pending_stock_record'):
+                        order._pending_stock_record.order_id = order.id
+                    
                     success_count += 1
                 except Exception as e:
                     errors.append(f"Row {index + 2}: {str(e)}")
@@ -250,60 +348,110 @@ class ExcelService:
             df = pd.read_excel(file_path)
             success_count = 0
             errors = []
-            created_skus = set()
 
             for index, row in df.iterrows():
                 try:
                     purchase_no = ExcelService._parse_str(row.get('订单编号'))
+                    sku_val = ExcelService._parse_str(row.get('单品货号')) or ExcelService._parse_str(row.get('SKU ID'))
+                    
                     if not purchase_no or purchase_no == 'nan':
                         continue
 
-                    # 1. 优先提取并处理 SKU
-                    # 注意：采购单可能包含多行（多个SKU），这里简化处理，假设purchase_no不唯一或者是子单号
-                    sku_val = ExcelService._parse_str(row.get('单品货号')) or ExcelService._parse_str(row.get('SKU ID'))
-                    product_name_val = ExcelService._parse_str(row.get('货品标题'))
-
-                    if sku_val:
-                         if sku_val not in created_skus:
-                             product = Product.query.filter_by(sku=sku_val).first()
-                             if not product:
-                                 product = Product(sku=sku_val, name=product_name_val, tenant_id=tenant_id)
-                                 db.session.add(product)
-                                 db.session.flush()
-                             
-                             # Update product cost and stock
-                             try:
-                                 unit_price = ExcelService._parse_decimal(row.get('单价(元)'))
-                                 quantity = ExcelService._parse_decimal(row.get('数量'))
-                                 
-                                 if unit_price > 0 and quantity > 0:
-                                     product.latest_purchase_price = unit_price
-                                     
-                                     # Weighted Average Cost Calculation
-                                     current_stock = product.stock_qty if product.stock_qty else Decimal('0.0')
-                                     current_avg_cost = product.avg_cost_price if product.avg_cost_price else Decimal('0.0')
-                                     
-                                     total_value = (current_stock * current_avg_cost) + (quantity * unit_price)
-                                     new_total_qty = current_stock + quantity
-                                     
-                                     if new_total_qty > 0:
-                                         new_avg_cost = total_value / new_total_qty
-                                         product.avg_cost_price = new_avg_cost
-                                     else:
-                                         product.avg_cost_price = unit_price
-
-                                 # Increment stock
-                                 product.stock_qty += quantity
-                             except Exception as e:
-                                 logger.warning(f"Failed to update product info for {sku_val}: {e}")
-
-                             created_skus.add(sku_val)
+                    # 0. 去重校验: 检查该采购单+SKU是否已经导入过
+                    existing_purchase = Purchase.query.filter_by(
+                        purchase_no=purchase_no, 
+                        sku=sku_val, 
+                        tenant_id=tenant_id
+                    ).first()
                     
-                    # 2. 处理 Purchase
-                    purchase = Purchase.query.filter_by(purchase_no=purchase_no).first()
-                    if not purchase:
+                    if existing_purchase:
+                        # 如果已存在，我们仅更新基础信息，跳过库存逻辑（防止重复增加库存）
+                        is_new_purchase = False
+                        purchase = existing_purchase
+                    else:
+                        is_new_purchase = True
                         purchase = Purchase(purchase_no=purchase_no, tenant_id=tenant_id)
+                    
+                    # 1. 优先提取并处理 SKU (Product)
+                    product_name_val = ExcelService._parse_str(row.get('货品标题'))
+                    if sku_val:
+                        product = Product.query.filter_by(sku=sku_val, tenant_id=tenant_id).first()
+                        if not product:
+                            product = Product(sku=sku_val, name=product_name_val, tenant_id=tenant_id)
+                            db.session.add(product)
+                            db.session.flush()
 
+                    # 2. 处理 库存增加 (仅对新采购记录)
+                    if is_new_purchase:
+                        # 提取型号和规格
+                        model, spec = ExcelService._parse_sku_specification(sku_val)
+                        if not model:
+                             # 尝试从标题匹配 (例如: "B025 黑 18cm")
+                             import re
+                             model_match = re.search(r'\b([A-Z]\d{3,})\b', product_name_val or '')
+                             if model_match:
+                                 model = model_match.group(1)
+                        
+                        if model:
+                            inventory = Inventory.query.filter_by(
+                                model=model, 
+                                spec=spec, 
+                                tenant_id=tenant_id
+                            ).first()
+                            
+                            if not inventory:
+                                inventory = Inventory(
+                                    model=model, 
+                                    spec=spec, 
+                                    tenant_id=tenant_id,
+                                    quantity=0,
+                                    avg_cost=Decimal('0.0')
+                                )
+                                db.session.add(inventory)
+                                db.session.flush()
+
+                            in_qty = ExcelService._parse_decimal(row.get('数量'))
+                            in_price = ExcelService._parse_decimal(row.get('单价(元)'))
+                            shipping_fee = ExcelService._parse_decimal(row.get('运费(元)'))
+                            actual_total = ExcelService._parse_decimal(row.get('货品总价(元)')) + shipping_fee
+                            
+                            if in_qty > 0:
+                                # 计算本次采购的落地单价 (Landed Cost per unit)
+                                landed_unit_price = actual_total / in_qty
+                                
+                                # 更新 Inventory 表的加权平均成本
+                                current_quantity = inventory.quantity
+                                current_avg_cost = inventory.avg_cost or Decimal('0.0')
+                                
+                                total_val = (current_quantity * current_avg_cost) + (in_qty * landed_unit_price)
+                                new_qty = current_quantity + in_qty
+                                if new_qty > 0:
+                                    inventory.avg_cost = total_val / new_qty
+                                
+                                # 同时同步更新 Product 表的数据作为参考
+                                product = Product.query.filter_by(sku=sku_val, tenant_id=tenant_id).first()
+                                if product:
+                                    product.latest_purchase_price = in_price
+                                    product.landed_cost = landed_unit_price # 本次落地成本
+                                    # 产品全局平均成本也更新
+                                    product.avg_cost_price = inventory.avg_cost
+
+                                # 创建入库记录
+                                record = StockRecord(
+                                    tenant_id=tenant_id,
+                                    inventory_id=inventory.id,
+                                    purchase_id=None, # 稍后关联
+                                    record_type='IN',
+                                    change_quantity=in_qty,
+                                    balance_quantity=new_qty,
+                                    unit_cost=land_unit_price,
+                                    remark=f"Purchase {purchase_no} auto-inbound (Landed)"
+                                )
+                                inventory.quantity = new_qty
+                                db.session.add(record)
+                                purchase._pending_stock_record = record
+
+                    # 3. 处理 Purchase 字段更新
                     purchase.sku = sku_val
                     purchase.product_name = product_name_val
                     purchase.quantity = ExcelService._parse_decimal(row.get('数量'))
@@ -344,7 +492,6 @@ class ExcelService:
                     purchase.upstream_order_no = ExcelService._parse_str(row.get('下游订单号')) or ExcelService._parse_str(row.get('关联编号'))
                     purchase.order_batch_no = ExcelService._parse_str(row.get('下单批次号'))
                     
-                    # 更多完善字段映射
                     purchase.shipper_name = ExcelService._parse_str(row.get('发货方'))
                     purchase.zip_code = ExcelService._parse_str(row.get('邮编'))
                     purchase.product_no = ExcelService._parse_str(row.get('货号'))
@@ -360,6 +507,12 @@ class ExcelService:
                     purchase.is_auto_pay = ExcelService._parse_str(row.get('是否发起免密支付(1:淘货源诚e赊免密支付2:批量下单免密支付)'))
                     
                     db.session.add(purchase)
+                    db.session.flush()
+                    
+                    # 关联库存流水
+                    if hasattr(purchase, '_pending_stock_record'):
+                        purchase._pending_stock_record.purchase_id = purchase.id
+
                     success_count += 1
                 except Exception as e:
                     errors.append(f"Row {index + 2}: {str(e)}")
