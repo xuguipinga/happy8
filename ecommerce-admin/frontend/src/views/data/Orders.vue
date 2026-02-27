@@ -65,11 +65,14 @@
                     </span>
                 </template>
             </el-tab-pane>
-            <el-tab-pane v-for="key in ['confirming', 'pending', 'paid', 'shipped', 'refund', 'closed']" :key="key" :name="key">
+            <el-tab-pane v-for="key in ['confirming', 'pending', 'paid', 'shipped', 'refund', 'unmatched', 'closed']" :key="key" :name="key">
                 <template #label>
                     <span class="tab-label">
                         {{ $t(`orders.tabs.${key}`) }}
-                        <span class="tab-count" v-if="kpiData.status_counts?.[key] > 0">
+                        <span class="tab-count" v-if="key !== 'unmatched' && kpiData.status_counts?.[key] > 0">
+                            {{ kpiData.status_counts[key] > 99 ? '99+' : kpiData.status_counts[key] }}
+                        </span>
+                        <span class="tab-count unmatched-badge" v-if="key === 'unmatched' && kpiData.status_counts?.[key] > 0">
                             {{ kpiData.status_counts[key] > 99 ? '99+' : kpiData.status_counts[key] }}
                         </span>
                     </span>
@@ -281,6 +284,66 @@
             <el-descriptions-item label="收货地址" :span="2">{{ currentOrder.shipping_address }}</el-descriptions-item>
             <el-descriptions-item label="备注" :span="2">{{ currentOrder.remark }}</el-descriptions-item>
         </el-descriptions>
+
+        <!-- 关联采购单部分 -->
+        <div class="linked-purchases-header">
+          <h3>{{ $t('orders.associatedPurchases') }}</h3>
+          <el-button type="primary" size="small" @click="openLinkPurchaseDialog">
+            {{ $t('orders.linkPurchase') }}
+          </el-button>
+        </div>
+        <el-table :data="linkedPurchases" border size="small" style="margin-top: 10px;">
+          <el-table-column prop="purchase_no" :label="$t('purchases.purchaseNo')" width="180" />
+          <el-table-column prop="product_name" :label="$t('orders.productInfo')" />
+          <el-table-column prop="sku" :label="$t('orders.sku')" width="150" />
+          <el-table-column prop="quantity" :label="$t('orders.quantity')" width="100" align="center" />
+          <el-table-column prop="actual_payment" :label="$t('purchases.amount')" width="120" align="right" />
+          <el-table-column :label="$t('common.operation')" width="100" align="center">
+            <template #default="scope">
+              <el-button link type="danger" @click="handleUnlinkPurchase(scope.row.id)">{{ $t('common.delete') }}</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </el-dialog>
+
+      <!-- 采购单选择弹窗 -->
+      <el-dialog
+        v-model="purchaseSelectionVisible"
+        :title="$t('orders.selectPurchase')"
+        width="50%"
+        append-to-body
+      >
+        <div style="margin-bottom: 15px;">
+          <el-input
+            v-model="purchaseSearchQuery"
+            :placeholder="$t('common.search') + '...'"
+            @keyup.enter="searchAvailablePurchases"
+            clearable
+          >
+            <template #append>
+              <el-button @click="searchAvailablePurchases" :icon="Search" />
+            </template>
+          </el-input>
+        </div>
+        <el-table
+          :data="availablePurchases"
+          v-loading="searchPurchasesLoading"
+          @selection-change="val => selectedPurchaseIds = val.map(i => i.id)"
+          height="400"
+          border
+        >
+          <el-table-column type="selection" width="55" />
+          <el-table-column prop="purchase_no" :label="$t('purchases.purchaseNo')" width="180" />
+          <el-table-column prop="product_name" :label="$t('orders.productInfo')" />
+          <el-table-column prop="sku" :label="$t('orders.sku')" width="150" />
+          <el-table-column prop="quantity" :label="$t('orders.quantity')" width="80" align="center" />
+        </el-table>
+        <template #footer>
+          <el-button @click="purchaseSelectionVisible = false">{{ $t('common.cancel') }}</el-button>
+          <el-button type="primary" @click="handleLinkPurchases" :loading="linkingLoading">
+            {{ $t('common.confirm') }}
+          </el-button>
+        </template>
       </el-dialog>
     </el-card>
   </div>
@@ -291,7 +354,8 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { uploadOrders, previewOrders } from '@/api/upload'
-import { getOrders, recalculateProfit, getOrdersKPI } from '@/api/orders'
+import { getOrders, recalculateProfit, getOrdersKPI, linkOrderPurchases, getOrderPurchases, unlinkOrderPurchase } from '@/api/orders'
+import { getPurchases } from '@/api/purchases'
 import { getLogistics } from '@/api/logistics'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import dayjs from 'dayjs'
@@ -333,7 +397,6 @@ const searchQuery = ref('')
 const filterStatus = ref([])
 const detailsDialogVisible = ref(false)
 const currentOrder = ref(null)
-
 const kpiData = ref({
     today_orders: 0,
     today_sales: 0,
@@ -345,6 +408,15 @@ const kpiData = ref({
 })
 
 const activeTab = ref('all')
+
+// --- Order-Purchase Linking State ---
+const linkedPurchases = ref([])
+const purchaseSelectionVisible = ref(false)
+const purchaseSearchQuery = ref('')
+const availablePurchases = ref([])
+const selectedPurchaseIds = ref([])
+const linkingLoading = ref(false)
+const searchPurchasesLoading = ref(false)
 
 const handleTabChange = (name) => {
     activeTab.value = name
@@ -443,6 +515,83 @@ const getStatusType = (dbStatus) => {
 const handleViewDetails = (row) => {
     currentOrder.value = row
     detailsDialogVisible.value = true
+    fetchLinkedPurchases(row.id)
+}
+
+// --- Order-Purchase Linking Methods ---
+const fetchLinkedPurchases = async (orderId) => {
+    try {
+        const res = await getOrderPurchases(orderId)
+        if (res.code === 200) {
+            linkedPurchases.value = res.data
+        }
+    } catch (error) {
+        console.error('Failed to fetch linked purchases:', error)
+    }
+}
+
+const openLinkPurchaseDialog = () => {
+    purchaseSelectionVisible.value = true
+    searchAvailablePurchases()
+}
+
+const searchAvailablePurchases = async () => {
+    searchPurchasesLoading.value = true
+    try {
+        const params = {
+            search: purchaseSearchQuery.value,
+            page: 1,
+            per_page: 50
+        }
+        const res = await getPurchases(params)
+        if (res.code === 200) {
+            availablePurchases.value = res.data.items
+        }
+    } catch (error) {
+        ElMessage.error(t('common.error'))
+    } finally {
+        searchPurchasesLoading.value = false
+    }
+}
+
+const handleLinkPurchases = async () => {
+    if (selectedPurchaseIds.value.length === 0) {
+        ElMessage.warning(t('inventory.selectPurchaseFirst'))
+        return
+    }
+    
+    linkingLoading.value = true
+    try {
+        const res = await linkOrderPurchases(currentOrder.value.id, selectedPurchaseIds.value)
+        if (res.code === 200) {
+            ElMessage.success(res.message)
+            purchaseSelectionVisible.value = false
+            selectedPurchaseIds.value = []
+            fetchLinkedPurchases(currentOrder.value.id)
+        }
+    } catch (error) {
+        ElMessage.error(t('common.error'))
+    } finally {
+        linkingLoading.value = false
+    }
+}
+
+const handleUnlinkPurchase = (purchaseId) => {
+    ElMessageBox.confirm(
+        t('orders.confirmUnlink') + '?',
+        t('common.confirm'),
+        { type: 'warning' }
+    ).then(async () => {
+        try {
+            const res = await unlinkOrderPurchase(currentOrder.value.id, purchaseId)
+            if (res.code === 200) {
+                ElMessage.success(res.message)
+                fetchLinkedPurchases(currentOrder.value.id)
+            }
+        } catch (error) {
+            ElMessage.error(t('common.error'))
+        }
+    })
 }
 
 const logisticsPreviewData = ref({})
@@ -519,17 +668,49 @@ const handleUpload = async (option) => {
     font-size: 15px;
 }
 .tab-count {
-    margin-left: 4px;
-    color: #409EFF;
-    font-weight: bold;
-    font-size: 13px;
+  margin-left: 5px;
+  background-color: #f56c6c;
+  color: #fff;
+  border-radius: 10px;
+  padding: 0 6px;
+  font-size: 11px;
+}
+
+.unmatched-badge {
+    background-color: #E6A23C; /* 使用警告橙色或红色 */
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.1); opacity: 0.8; }
+  100% { transform: scale(1); opacity: 1; }
 }
 .pagination-container { margin-top: 20px; display: flex; justify-content: flex-end; }
 .product-name { font-weight: 500; }
 .product-sku { font-size: 12px; color: #909399; }
 .sub-text { font-size: 12px; color: #909399; }
 .profit-positive { color: #67C23A; font-weight: bold; }
-.profit-negative { color: #F56C6C; font-weight: bold; }
+.profit-negative {
+  color: #F56C6C;
+  font-weight: bold;
+}
+
+.linked-purchases-header {
+  margin-top: 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid #ebeef5;
+  padding-top: 20px;
+}
+
+.linked-purchases-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+}
 .aggregated-item { padding: 8px 0; }
 .aggregated-item.has-divider { border-bottom: 1px solid #ebeef5; }
 .content-card { min-height: calc(100vh - 140px); }

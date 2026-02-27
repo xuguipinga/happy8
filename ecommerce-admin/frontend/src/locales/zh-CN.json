@@ -64,8 +64,13 @@
             "paid": "准备发货",
             "shipped": "运输中",
             "refund": "退款和售后",
+            "unmatched": "待处理 (未关联成本)",
             "closed": "已完成/已关闭"
-        }
+        },
+        "associatedPurchases": "关联采购记录",
+        "linkPurchase": "手动关联采购单",
+        "selectPurchase": "选择采购单",
+        "confirmUnlink": "确定要解除此关联吗"
     },
     "logistics": {
         "title": "物流管理",
@@ -81,6 +86,28 @@
             "count": "物流单数",
             "avgFee": "平均物流费"
         }
+    },
+    "inventory": {
+        "title": "库存管理",
+        "model": "产品型号",
+        "spec": "规格/尺寸",
+        "quantity": "现有库存",
+        "unit": "单位",
+        "avgCost": "平均成本",
+        "totalSitus": "管理型号总数",
+        "lowStockItems": "库存告急项",
+        "inbound": "补货入库",
+        "outbound": "销售出库",
+        "adjustment": "报损/校验",
+        "history": "变动流水",
+        "movementHistory": "库存变动历史",
+        "changeQty": "变动数量",
+        "unitCost": "本次成本 (¥)",
+        "balance": "操作后余量",
+        "in": "入库",
+        "out": "出库",
+        "adj": "调整",
+        "selectPurchaseFirst": "请先选择采购单"
     },
     "purchases": {
         "title": "采购管理",

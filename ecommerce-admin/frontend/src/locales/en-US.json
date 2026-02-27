@@ -17,6 +17,8 @@
         "to": "To",
         "loading": "Loading",
         "status": "Status",
+        "count": "P.O. Count",
+        "amount": "Purchase Amount",
         "noData": "No Data"
     },
     "orders": {
@@ -59,13 +61,19 @@
         },
         "tabs": {
             "all": "All",
+            "adj": "Adj",
             "confirming": "Confirming",
             "pending": "Pending Payment",
             "paid": "Paid",
             "shipped": "Shipped",
             "refund": "Refund",
+            "unmatched": "Pending Match",
             "closed": "Completed/Closed"
-        }
+        },
+        "associatedPurchases": "Associated Purchases",
+        "linkPurchase": "Link Purchase Order",
+        "selectPurchase": "Select Purchase Order",
+        "confirmUnlink": "Are you sure you want to remove this link"
     },
     "logistics": {
         "title": "Logistics Management",

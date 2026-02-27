@@ -27,6 +27,7 @@
             <el-menu-item index="/purchases">采购管理</el-menu-item>
             <el-menu-item index="/logistics">物流管理</el-menu-item>
             <el-menu-item index="/products">商品管理</el-menu-item>
+            <el-menu-item index="/inventory">库存管理</el-menu-item>
           </el-sub-menu>
           
           <el-menu-item index="/analysis">

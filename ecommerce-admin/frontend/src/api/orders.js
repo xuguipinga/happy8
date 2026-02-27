@@ -22,3 +22,25 @@ export function getOrdersKPI(params) {
         params
     })
 }
+
+export function linkOrderPurchases(orderId, purchaseIds) {
+    return request({
+        url: `/orders/${orderId}/link-purchases`,
+        method: 'post',
+        data: { purchase_ids: purchaseIds }
+    })
+}
+
+export function getOrderPurchases(orderId) {
+    return request({
+        url: `/orders/${orderId}/purchases`,
+        method: 'get'
+    })
+}
+
+export function unlinkOrderPurchase(orderId, purchaseId) {
+    return request({
+        url: `/orders/${orderId}/unlink-purchase/${purchaseId}`,
+        method: 'delete'
+    })
+}
