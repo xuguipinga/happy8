@@ -17,6 +17,9 @@
         "to": "至",
         "loading": "加载中",
         "status": "状态",
+        "updateTime": "更新时间",
+        "actions": "操作",
+        "required": "是必填项",
         "noData": "暂无数据"
     },
     "orders": {
@@ -107,6 +110,8 @@
         "in": "入库",
         "out": "出库",
         "adj": "调整",
+        "addNew": "新增库存型号",
+        "createTitle": "手动新增库存",
         "selectPurchaseFirst": "请先选择采购单"
     },
     "purchases": {

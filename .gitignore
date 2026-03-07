@@ -25,6 +25,7 @@ Thumbs.db
 Desktop.ini
 .DS_Store
 
-# Node/JS (if needed later)
+# Node/JS
 node_modules/
-dist/
+# Allow dist for local build deployment strategy
+# dist/

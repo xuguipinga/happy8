@@ -3,13 +3,17 @@
     <div class="page-header">
       <h2>{{ $t('inventory.title') }}</h2>
       <div class="header-right">
+        <el-button type="primary" @click="openCreateDialog" style="margin-right: 15px;">
+          <el-icon class="el-icon--left"><Plus /></el-icon>
+          {{ $t('inventory.addNew') }}
+        </el-button>
         <el-input
           v-model="searchQuery"
           :placeholder="$t('common.search') + '...'"
           clearable
           @clear="handleSearch"
           @keyup.enter="handleSearch"
-          style="width: 300px;"
+          style="width: 250px;"
         >
           <template #append>
             <el-button @click="handleSearch">
@@ -122,6 +126,40 @@
       </template>
     </el-dialog>
 
+    <!-- Create Dialog -->
+    <el-dialog
+      v-model="createDialogVisible"
+      :title="$t('inventory.createTitle')"
+      width="450px"
+      class="premium-dialog"
+    >
+      <el-form :model="createForm" label-width="120px" style="padding: 20px 0;">
+        <el-form-item :label="$t('inventory.model')" required>
+          <el-input v-model="createForm.model" placeholder="如: B002" />
+        </el-form-item>
+        <el-form-item :label="$t('inventory.spec')">
+          <el-input v-model="createForm.spec" placeholder="如: 20cm 或 Black" />
+        </el-form-item>
+        <el-form-item :label="$t('inventory.unit')">
+          <el-input v-model="createForm.unit" placeholder="pcs" />
+        </el-form-item>
+        <el-form-item :label="$t('inventory.quantity')">
+          <el-input-number v-model="createForm.quantity" :step="1" />
+        </el-form-item>
+        <el-form-item :label="$t('inventory.avgCost')">
+          <el-input v-model="createForm.avg_cost" placeholder="0.00">
+            <template #prefix>¥</template>
+          </el-input>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="createDialogVisible = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="submitCreate" :loading="submitLoading">
+          {{ $t('common.confirm') }}
+        </el-button>
+      </template>
+    </el-dialog>
+
     <!-- History Drawer -->
     <el-drawer
       v-model="historyVisible"
@@ -188,6 +226,14 @@ const adjustForm = ref({
   remark: '',
   type: 'IN'
 })
+const createDialogVisible = ref(false)
+const createForm = ref({
+  model: '',
+  spec: '',
+  unit: 'pcs',
+  quantity: 0,
+  avg_cost: ''
+})
 const historyData = ref([])
 
 onMounted(() => {
@@ -249,6 +295,41 @@ const adjustTitle = computed(() => {
   if (adjustForm.value.type === 'OUT') return t('inventory.outbound')
   return t('inventory.adjustment')
 })
+
+const openCreateDialog = () => {
+  createForm.value = {
+    model: '',
+    spec: '',
+    unit: 'pcs',
+    quantity: 0,
+    avg_cost: ''
+  }
+  createDialogVisible.value = true
+}
+
+const submitCreate = async () => {
+  if (!createForm.value.model) {
+    ElMessage.warning(t('inventory.model') + ' ' + t('common.required'))
+    return
+  }
+  submitLoading.value = true
+  try {
+    const res = await request({
+      url: '/inventory',
+      method: 'post',
+      data: createForm.value
+    })
+    if (res.code === 200) {
+      ElMessage.success(t('common.success'))
+      createDialogVisible.value = false
+      fetchData()
+    }
+  } catch (error) {
+    ElMessage.error(error.response?.data?.message || t('common.error'))
+  } finally {
+    submitLoading.value = false
+  }
+}
 
 const submitAdjustment = async () => {
   submitLoading.value = true

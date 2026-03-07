@@ -38,6 +38,58 @@ def get_inventory():
         }
     })
 
+@api.route('/inventory', methods=['POST'])
+def create_inventory():
+    """手动创建新的型号库存项"""
+    tenant_id, error = get_tenant_from_request()
+    if error: return error
+    
+    data = request.json
+    model = data.get('model')
+    spec = data.get('spec', '')
+    unit = data.get('unit', 'pcs')
+    initial_qty = Decimal(str(data.get('quantity', 0)))
+    avg_cost = Decimal(str(data.get('avg_cost', 0)))
+    
+    if not model:
+        return jsonify({'code': 400, 'message': '型号不能为空'}), 400
+        
+    # 检查是否已存在
+    exists = Inventory.query.filter_by(tenant_id=tenant_id, model=model, spec=spec).first()
+    if exists:
+        return jsonify({'code': 400, 'message': '该型号规格已存在，请使用调整功能'}), 400
+        
+    try:
+        inventory = Inventory(
+            tenant_id=tenant_id,
+            model=model,
+            spec=spec,
+            quantity=initial_qty,
+            unit=unit,
+            avg_cost=avg_cost
+        )
+        db.session.add(inventory)
+        db.session.flush() # 获取 ID
+        
+        # 如果有初始数量，记录一条流水
+        if initial_qty != 0:
+            record = StockRecord(
+                tenant_id=tenant_id,
+                inventory_id=inventory.id,
+                record_type='IN' if initial_qty > 0 else 'OUT',
+                change_quantity=initial_qty,
+                balance_quantity=initial_qty,
+                unit_cost=avg_cost,
+                remark='初始化库存'
+            )
+            db.session.add(record)
+            
+        db.session.commit()
+        return jsonify({'code': 200, 'message': '创建成功', 'data': {'id': inventory.id}})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'code': 500, 'message': str(e)}), 500
+
 @api.route('/inventory/adjust', methods=['POST'])
 def adjust_inventory():
     """手动调整库存 (入库/出库/报损)"""

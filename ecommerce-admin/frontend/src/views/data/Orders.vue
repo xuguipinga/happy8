@@ -12,7 +12,7 @@
                 :end-placeholder="$t('common.endDate')"
                 value-format="YYYY-MM-DD"
                 :shortcuts="shortcuts"
-                style="margin-right: 10px; width: 260px;"
+                style="width: 260px;"
                 @change="handleSearch"
              />
               <!-- 移除原有的多选 Select，改为由 Tab 控制 -->
@@ -22,7 +22,7 @@
                 clearable
                 @clear="handleSearch"
                 @keyup.enter="handleSearch"
-                style="width: 250px; margin-right: 10px;"
+                style="width: 250px;"
              >
                 <template #append>
                     <el-button @click="handleSearch">
@@ -46,7 +46,7 @@
                 {{ $t('orders.importExcel') }}
             </el-button>
             </el-upload>
-            <el-button type="warning" @click="handleRecalculate" :loading="recalcLoading" style="margin-left: 10px;">
+            <el-button type="warning" @click="handleRecalculate" :loading="recalcLoading">
                 <el-icon class="el-icon--left"><Refresh /></el-icon>
                 {{ $t('orders.recalculateProfit') }}
             </el-button>
@@ -654,8 +654,10 @@ const handleUpload = async (option) => {
   align-items: center;
   margin-bottom: 20px;
 }
-.header-right { display: flex; align-items: center; }
-.page-header h2 { margin: 0; font-size: 20px; font-weight: 500; }
+.page-header h2 { margin: 0; font-size: 20px; font-weight: 500; white-space: nowrap; margin-right: 20px; }
+.header-right { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.search-box { display: flex; align-items: center; gap: 10px; }
+.actions { display: flex; align-items: center; gap: 10px; }
 .tabs-container {
     background: #fff;
     margin-bottom: 20px;

@@ -17,6 +17,9 @@
         "to": "To",
         "loading": "Loading",
         "status": "Status",
+        "updateTime": "Update Time",
+        "actions": "Actions",
+        "required": "is required",
         "count": "P.O. Count",
         "amount": "Purchase Amount",
         "noData": "No Data"
@@ -105,6 +108,30 @@
             "totalCost": "Total Cost",
             "count": "Purchases"
         }
+    },
+    "inventory": {
+        "title": "Inventory Management",
+        "model": "Model",
+        "spec": "Spec",
+        "quantity": "Stock Qty",
+        "unit": "Unit",
+        "avgCost": "Avg Cost",
+        "totalSitus": "Total Models",
+        "lowStockItems": "Low Stock Items",
+        "inbound": "Inbound",
+        "outbound": "Outbound",
+        "adjustment": "Adjustment",
+        "history": "History",
+        "movementHistory": "Movement History",
+        "changeQty": "Change Qty",
+        "unitCost": "Unit Cost (¥)",
+        "balance": "Balance",
+        "in": "IN",
+        "out": "OUT",
+        "adj": "ADJ",
+        "addNew": "Add New Model",
+        "createTitle": "Create Inventory Item",
+        "selectPurchaseFirst": "Please select purchase order first"
     },
     "shortcuts": {
         "today": "Today",
