@@ -174,7 +174,12 @@
           <template #default="scope">
             <div v-for="(item, index) in scope.row.items" :key="item.id" class="aggregated-item" :class="{ 'has-divider': index < scope.row.items.length - 1 }">
               <div class="product-name">{{ item.product_name }}</div>
-              <div class="product-sku">{{ $t('orders.sku') }}: {{ item.sku }}</div>
+              <div class="product-sku">
+                {{ $t('orders.sku') }}: {{ item.sku }}
+                <el-tag v-if="item.parsed_model" size="small" type="info" class="parsed-tag" effect="plain" style="margin-left: 8px;">
+                  [识别型号: {{ item.parsed_model }}]
+                </el-tag>
+              </div>
             </div>
           </template>
         </el-table-column>
@@ -690,7 +695,13 @@ const handleUpload = async (option) => {
 }
 .pagination-container { margin-top: 20px; display: flex; justify-content: flex-end; }
 .product-name { font-weight: 500; }
-.product-sku { font-size: 12px; color: #909399; }
+.product-sku { font-size: 12px; color: #909399; display: flex; align-items: center; flex-wrap: wrap; }
+.product-sku .parsed-tag {
+    font-size: 10px;
+    height: 20px;
+    padding: 0 4px;
+    line-height: 18px;
+}
 .sub-text { font-size: 12px; color: #909399; }
 .profit-positive { color: #67C23A; font-weight: bold; }
 .profit-negative {

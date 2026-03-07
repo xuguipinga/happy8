@@ -2,7 +2,9 @@ from app.models.order import Order
 from app.models.product import Product
 from app.models.logistics import Logistics
 from app.models.purchase import Purchase
+from app.api.stock import Inventory # 补充导入
 from app.extensions import db
+from app.utils.sku_parser import parse_sku # 导入解析器
 from decimal import Decimal
 import logging
 
@@ -38,6 +40,18 @@ class ProfitService:
                     
                     # 更新订单上的 snapshot 成本
                     order.cost_price = product_cost
+                else:
+                    # 如果产品表没定义该 SKU，尝试智能解析并匹配库存表
+                    model, spec = parse_sku(order.sku)
+                    if model:
+                        # 在库存表中查找型号匹配项
+                        inv = Inventory.query.filter_by(model=model).first()
+                        if inv:
+                            # 使用库存表的平均成本
+                            unit_cost = inv.avg_cost if inv.avg_cost > 0 else Decimal(0)
+                            product_cost = unit_cost * Decimal(order.quantity)
+                            order.cost_price = product_cost
+                            logger.info(f"Smart Matched SKU {order.sku} to Model {model} with cost {unit_cost}")
 
             # 3. 物流成本 (Logistics Cost)
             logistics_cost = Decimal(0)

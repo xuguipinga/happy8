@@ -5,6 +5,7 @@ from app.models.purchase import Purchase
 from app.extensions import db
 from sqlalchemy import desc
 from app.middleware import require_auth
+from app.utils.sku_parser import parse_sku # 导入解析器
 from flask import g
 
 STATUS_MAP = {
@@ -165,6 +166,7 @@ def get_orders():
             'id': item.id,
             'product_name': item.product_name,
             'sku': item.sku,
+            'parsed_model': parse_sku(item.sku)[0] if item.sku else None, # 解析出的型号
             'quantity': item.quantity,
             'unit_price': float(item.unit_price) if item.unit_price else 0,
             'cost_price': float(item.cost_price) if item.cost_price else 0,
