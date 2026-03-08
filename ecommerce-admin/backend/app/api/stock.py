@@ -3,6 +3,7 @@ from app.api import api
 from app.extensions import db
 from app.models.stock import Inventory, StockRecord
 from app.utils.auth_helper import get_tenant_from_request
+from app.utils.inventory_parser import parse_inventory_excel # 导入解析器
 from decimal import Decimal
 from datetime import datetime
 
@@ -48,8 +49,17 @@ def create_inventory():
     model = data.get('model')
     spec = data.get('spec', '')
     unit = data.get('unit', 'pcs')
-    initial_qty = Decimal(str(data.get('quantity', 0)))
-    avg_cost = Decimal(str(data.get('avg_cost', 0)))
+    
+    def to_decimal(val, default=0):
+        try:
+            if val is None or str(val).strip() == '':
+                return Decimal(str(default))
+            return Decimal(str(val))
+        except:
+            return Decimal(str(default))
+
+    initial_qty = to_decimal(data.get('quantity'))
+    avg_cost = to_decimal(data.get('avg_cost'))
     
     if not model:
         return jsonify({'code': 400, 'message': '型号不能为空'}), 400
@@ -89,6 +99,80 @@ def create_inventory():
     except Exception as e:
         db.session.rollback()
         return jsonify({'code': 500, 'message': str(e)}), 500
+
+@api.route('/inventory/import', methods=['POST'])
+def import_inventory():
+    """从 Excel 批量导入库存型号和初现数量"""
+    tenant_id, error = get_tenant_from_request()
+    if error: return error
+    
+    if 'file' not in request.files:
+        return jsonify({'code': 400, 'message': '请选择文件'}), 400
+        
+    clear_existing = request.form.get('clear_existing') == 'true'
+    file = request.files['file']
+    
+    try:
+        if clear_existing:
+            # 获取该租户的所有库存 ID
+            inv_ids = [inv.id for inv in Inventory.query.filter_by(tenant_id=tenant_id).all()]
+            if inv_ids:
+                # 删除流水记录
+                StockRecord.query.filter(StockRecord.inventory_id.in_(inv_ids)).delete(synchronize_session=False)
+                # 删除库存主表
+                Inventory.query.filter(Inventory.id.in_(inv_ids)).delete(synchronize_session=False)
+                db.session.flush()
+
+        items = parse_inventory_excel(file.read())
+        count = 0
+        new_models = 0
+        
+        for item in items:
+            # 查找或创建
+            inv = Inventory.query.filter_by(
+                tenant_id=tenant_id, 
+                model=item['model'], 
+                spec=item['spec']
+            ).first()
+            
+            if not inv:
+                inv = Inventory(
+                    tenant_id=tenant_id,
+                    model=item['model'],
+                    spec=item['spec'],
+                    quantity=item['quantity'],
+                    unit='pcs'
+                )
+                db.session.add(inv)
+                new_models += 1
+            else:
+                # 如果已存在，则累加数量（初始化导入场景）
+                inv.quantity += item['quantity']
+            
+            db.session.flush() # 确保有 ID 进行记录
+            
+            # 记录流水
+            if item['quantity'] != 0:
+                record = StockRecord(
+                    tenant_id=tenant_id,
+                    inventory_id=inv.id,
+                    record_type='IN' if item['quantity'] > 0 else 'OUT',
+                    change_quantity=item['quantity'],
+                    balance_quantity=inv.quantity,
+                    remark='Excel 批量导入'
+                )
+                db.session.add(record)
+            
+            count += 1
+            
+        db.session.commit()
+        return jsonify({
+            'code': 200, 
+            'message': f'成功处理 {count} 条数据，新增 {new_models} 个型号'
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'code': 500, 'message': f'解析失败: {str(e)}'}), 500
 
 @api.route('/inventory/adjust', methods=['POST'])
 def adjust_inventory():

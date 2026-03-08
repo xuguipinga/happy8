@@ -20,6 +20,8 @@
         "updateTime": "更新时间",
         "actions": "操作",
         "required": "是必填项",
+        "success": "业务执行成功",
+        "error": "操作失败，请重试",
         "noData": "暂无数据"
     },
     "orders": {
@@ -102,6 +104,9 @@
         "inbound": "补货入库",
         "outbound": "销售出库",
         "adjustment": "报损/校验",
+        "importExcel": "从 Excel 导入库存",
+        "resetImport": "重置并重新导入",
+        "resetConfirm": "确定要清空当前所有库存数据并重新导入吗？此操作不可恢复！",
         "history": "变动流水",
         "movementHistory": "库存变动历史",
         "changeQty": "变动数量",

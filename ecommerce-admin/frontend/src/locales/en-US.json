@@ -20,6 +20,8 @@
         "updateTime": "Update Time",
         "actions": "Actions",
         "required": "is required",
+        "success": "Success",
+        "error": "Operation failed",
         "count": "P.O. Count",
         "amount": "Purchase Amount",
         "noData": "No Data"
@@ -121,6 +123,9 @@
         "inbound": "Inbound",
         "outbound": "Outbound",
         "adjustment": "Adjustment",
+        "importExcel": "Import from Excel",
+        "resetImport": "Reset & Re-import",
+        "resetConfirm": "Are you sure you want to CLEAR ALL inventory data and re-import? This action cannot be undone!",
         "history": "History",
         "movementHistory": "Movement History",
         "changeQty": "Change Qty",

@@ -3,10 +3,38 @@
     <div class="page-header">
       <h2>{{ $t('inventory.title') }}</h2>
       <div class="header-right">
-        <el-button type="primary" @click="openCreateDialog" style="margin-right: 15px;">
+        <el-button type="primary" @click="openCreateDialog" style="margin-right: 10px;">
           <el-icon class="el-icon--left"><Plus /></el-icon>
           {{ $t('inventory.addNew') }}
         </el-button>
+        <el-upload
+          class="upload-demo"
+          action="#"
+          :auto-upload="false"
+          :show-file-list="false"
+          :on-change="handleImport"
+          accept=".xlsx, .xls"
+          style="margin-right: 15px;"
+        >
+          <el-button type="success" plain>
+            <el-icon class="el-icon--left"><Upload /></el-icon>
+            {{ $t('inventory.importExcel') }}
+          </el-button>
+        </el-upload>
+        <el-upload
+          class="upload-demo"
+          action="#"
+          :auto-upload="false"
+          :show-file-list="false"
+          :on-change="(file) => handleImport(file, true)"
+          accept=".xlsx, .xls"
+          style="margin-right: 15px;"
+        >
+          <el-button type="danger" plain>
+            <el-icon class="el-icon--left"><Delete /></el-icon>
+            {{ $t('inventory.resetImport') }}
+          </el-button>
+        </el-upload>
         <el-input
           v-model="searchQuery"
           :placeholder="$t('common.search') + '...'"
@@ -328,6 +356,44 @@ const submitCreate = async () => {
     ElMessage.error(error.response?.data?.message || t('common.error'))
   } finally {
     submitLoading.value = false
+  }
+}
+
+
+const handleImport = async (file, clearExisting = false) => {
+  if (clearExisting) {
+    try {
+      await ElMessageBox.confirm(
+        t('inventory.resetConfirm'),
+        t('common.warning'),
+        {
+          confirmButtonText: t('common.confirm'),
+          cancelButtonText: t('common.cancel'),
+          type: 'warning',
+        }
+      )
+    } catch {
+      return
+    }
+  }
+
+  const formData = new FormData()
+  formData.append('file', file.raw)
+  formData.append('clear_existing', clearExisting)
+  
+  try {
+    const res = await request({
+      url: '/inventory/import',
+      method: 'post',
+      data: formData,
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+    if (res.code === 200) {
+      ElMessage.success(res.message)
+      fetchData()
+    }
+  } catch (error) {
+    ElMessage.error(error.response?.data?.message || t('common.error'))
   }
 }
 
