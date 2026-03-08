@@ -22,6 +22,7 @@
         "required": "是必填项",
         "success": "业务执行成功",
         "error": "操作失败，请重试",
+        "processing": "正在处理数据，请稍候...",
         "noData": "暂无数据"
     },
     "orders": {

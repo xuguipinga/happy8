@@ -22,6 +22,7 @@
         "required": "is required",
         "success": "Success",
         "error": "Operation failed",
+        "processing": "Processing data, please wait...",
         "count": "P.O. Count",
         "amount": "Purchase Amount",
         "noData": "No Data"

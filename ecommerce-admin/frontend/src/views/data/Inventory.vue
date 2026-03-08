@@ -228,7 +228,8 @@
 
 <script setup>
 import { ref, onMounted, computed } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox, ElLoading } from 'element-plus'
+import { Plus, Upload, Search, Delete } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import request from '@/utils/request'
 
@@ -377,6 +378,12 @@ const handleImport = async (file, clearExisting = false) => {
     }
   }
 
+  const loadingInstance = ElLoading.service({
+    lock: true,
+    text: t('common.processing') || 'Processing...',
+    background: 'rgba(0, 0, 0, 0.7)',
+  })
+
   const formData = new FormData()
   formData.append('file', file.raw)
   formData.append('clear_existing', clearExisting)
@@ -391,9 +398,14 @@ const handleImport = async (file, clearExisting = false) => {
     if (res.code === 200) {
       ElMessage.success(res.message)
       fetchData()
+    } else {
+      ElMessage.error(res.message || t('common.error'))
     }
   } catch (error) {
+    console.error('Import error:', error)
     ElMessage.error(error.response?.data?.message || t('common.error'))
+  } finally {
+    loadingInstance.close()
   }
 }
 
