@@ -17,6 +17,8 @@ class Inventory(db.Model):
     
     # 冗余字段用于快速取成本，也可以由流水推算
     avg_cost = db.Column(db.Numeric(12, 4), default=0.0, comment='平均入库成本')
+    
+    status = db.Column(db.String(20), default='NORMAL', comment='库存状态: NORMAL(普通), ADVANCED(高级)')
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

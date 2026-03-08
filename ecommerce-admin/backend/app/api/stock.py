@@ -14,12 +14,16 @@ def get_inventory():
     if error: return error
     
     search = request.args.get('search', '')
+    status = request.args.get('status', '')
     page = int(request.args.get('page', 1))
     per_page = int(request.args.get('per_page', 20))
     
     query = Inventory.query.filter_by(tenant_id=tenant_id)
     if search:
         query = query.filter(Inventory.model.ilike(f'%{search}%') | Inventory.spec.ilike(f'%{search}%'))
+    
+    if status:
+        query = query.filter_by(status=status)
     
     pagination = query.order_by(Inventory.updated_at.desc()).paginate(page=page, per_page=per_page)
     
@@ -30,6 +34,7 @@ def get_inventory():
                 'id': item.id,
                 'model': item.model,
                 'spec': item.spec,
+                'status': item.status,
                 'quantity': float(item.quantity),
                 'unit': item.unit,
                 'avg_cost': float(item.avg_cost),
@@ -48,6 +53,7 @@ def create_inventory():
     data = request.json
     model = data.get('model')
     spec = data.get('spec', '')
+    status = data.get('status', 'NORMAL')
     unit = data.get('unit', 'pcs')
     
     def to_decimal(val, default=0):
@@ -74,6 +80,7 @@ def create_inventory():
             tenant_id=tenant_id,
             model=model,
             spec=spec,
+            status=status,
             quantity=initial_qty,
             unit=unit,
             avg_cost=avg_cost

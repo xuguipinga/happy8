@@ -70,10 +70,40 @@
 
     <!-- Stock Table -->
     <el-card shadow="never" class="content-card">
-      <el-table :data="tableData" v-loading="loading" style="width: 100%" border stripe>
-        <el-table-column prop="model" :label="$t('inventory.model')" width="150">
+      <el-table 
+        :data="tableData" 
+        v-loading="loading" 
+        style="width: 100%" 
+        border 
+        stripe
+        @filter-change="handleFilterChange"
+      >
+        <el-table-column 
+          prop="model" 
+          :label="$t('inventory.model')" 
+          width="150"
+          sortable
+        >
           <template #default="{ row }">
             <span class="model-tag">{{ row.model }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column 
+          prop="status" 
+          :label="$t('inventory.status')" 
+          width="120"
+          align="center"
+          :filters="[
+            { text: $t('inventory.normal'), value: 'NORMAL' },
+            { text: $t('inventory.advanced'), value: 'ADVANCED' }
+          ]"
+          :filter-multiple="false"
+          column-key="status"
+        >
+          <template #default="{ row }">
+            <el-tag :type="row.status === 'ADVANCED' ? 'warning' : 'info'" size="small" effect="light">
+              {{ row.status === 'ADVANCED' ? $t('inventory.advanced') : $t('inventory.normal') }}
+            </el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="spec" :label="$t('inventory.spec')" width="150" />
@@ -179,6 +209,12 @@
             <template #prefix>¥</template>
           </el-input>
         </el-form-item>
+        <el-form-item :label="$t('inventory.status')">
+          <el-radio-group v-model="createForm.status">
+            <el-radio label="NORMAL">{{ $t('inventory.normal') }}</el-radio>
+            <el-radio label="ADVANCED">{{ $t('inventory.advanced') }}</el-radio>
+          </el-radio-group>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="createDialogVisible = false">{{ $t('common.cancel') }}</el-button>
@@ -249,6 +285,7 @@ const adjustDialogVisible = ref(false)
 const historyVisible = ref(false)
 const currentItem = ref(null)
 const submitLoading = ref(false)
+const statusFilter = ref('')
 const adjustForm = ref({
   quantity: 1,
   unit_cost: '',
@@ -261,7 +298,8 @@ const createForm = ref({
   spec: '',
   unit: 'pcs',
   quantity: 0,
-  avg_cost: ''
+  avg_cost: '',
+  status: 'NORMAL'
 })
 const historyData = ref([])
 
@@ -278,7 +316,8 @@ const fetchData = async () => {
       params: {
         page: currentPage.value,
         per_page: pageSize.value,
-        search: searchQuery.value
+        search: searchQuery.value,
+        status: statusFilter.value
       }
     })
     if (res.code === 200) {
@@ -296,6 +335,14 @@ const fetchData = async () => {
 const handleSearch = () => {
   currentPage.value = 1
   fetchData()
+}
+
+const handleFilterChange = (filters) => {
+  if (filters.status) {
+    statusFilter.value = filters.status[0] || ''
+    currentPage.value = 1
+    fetchData()
+  }
 }
 
 const handleSizeChange = (val) => {
