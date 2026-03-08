@@ -47,6 +47,7 @@ class StockRecord(db.Model):
     
     unit_cost = db.Column(db.Numeric(12, 4), comment='本次变动的单价成本')
     remark = db.Column(db.String(255), comment='备注 (如: 报损、样品领取)')
+    operator_name = db.Column(db.String(50), comment='操作人姓名')
     
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 

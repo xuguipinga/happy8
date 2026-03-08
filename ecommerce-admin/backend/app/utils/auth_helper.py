@@ -28,4 +28,4 @@ def get_tenant_from_request():
     if not user or not user.is_active:
         return None, (jsonify({'code': 401, 'message': '用户无效或已禁用'}), 401)
     
-    return user.tenant_id, None
+    return user, None

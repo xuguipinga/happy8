@@ -38,6 +38,17 @@ with app.app_context():
         else:
             print("Column 'status' already exists.")
             
+        # 检查 biz_stock_records 表是否有 operator_name 列
+        result = db.session.execute(text("SHOW COLUMNS FROM biz_stock_records")).fetchall()
+        columns = [row[0] for row in result]
+        if 'operator_name' not in columns:
+            print("Adding 'operator_name' column to biz_stock_records...")
+            db.session.execute(text("ALTER TABLE biz_stock_records ADD COLUMN operator_name VARCHAR(50) COMMENT '操作人姓名'"))
+            db.session.commit()
+            print("Column 'operator_name' added successfully.")
+        else:
+            print("Column 'operator_name' already exists.")
+            
     except Exception as e:
         # 如果是 SQLite (开发环境)
         try:
@@ -49,5 +60,13 @@ with app.app_context():
                 print("Column 'status' added successfully (SQLite).")
             else:
                 print("Column 'status' already exists (SQLite).")
+            
+            # SQLite check for biz_stock_records
+            result = db.session.execute(text("PRAGMA table_info(biz_stock_records)")).fetchall()
+            columns = [row[1] for row in result]
+            if 'operator_name' not in columns:
+                db.session.execute(text("ALTER TABLE biz_stock_records ADD COLUMN operator_name VARCHAR(50)"))
+                db.session.commit()
+                print("Column 'operator_name' added successfully (SQLite).")
         except Exception as e_inner:
             print(f"Error updating database: {e_inner}")

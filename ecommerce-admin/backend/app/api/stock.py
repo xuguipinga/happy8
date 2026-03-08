@@ -10,8 +10,9 @@ from datetime import datetime
 @api.route('/inventory', methods=['GET'])
 def get_inventory():
     """获取库存列表"""
-    tenant_id, error = get_tenant_from_request()
+    user, error = get_tenant_from_request()
     if error: return error
+    tenant_id = user.tenant_id
     
     search = request.args.get('search', '')
     status = request.args.get('status', '')
@@ -29,7 +30,7 @@ def get_inventory():
     elif status == 'OUT':
         query = query.filter(Inventory.quantity <= 0)
     
-    pagination = query.order_by(Inventory.updated_at.desc()).paginate(page=page, per_page=per_page)
+    pagination = query.order_by(Inventory.model.asc()).paginate(page=page, per_page=per_page)
     
     return jsonify({
         'code': 200,
@@ -51,8 +52,9 @@ def get_inventory():
 @api.route('/inventory', methods=['POST'])
 def create_inventory():
     """手动创建新的型号库存项"""
-    tenant_id, error = get_tenant_from_request()
+    user, error = get_tenant_from_request()
     if error: return error
+    tenant_id = user.tenant_id
     
     data = request.json
     model = data.get('model')
@@ -101,7 +103,8 @@ def create_inventory():
                 change_quantity=initial_qty,
                 balance_quantity=initial_qty,
                 unit_cost=avg_cost,
-                remark='初始化库存'
+                remark='初始化库存',
+                operator_name=user.username
             )
             db.session.add(record)
             
@@ -114,8 +117,9 @@ def create_inventory():
 @api.route('/inventory/import', methods=['POST'])
 def import_inventory():
     """从 Excel 批量导入库存型号和初现数量"""
-    tenant_id, error = get_tenant_from_request()
+    user, error = get_tenant_from_request()
     if error: return error
+    tenant_id = user.tenant_id
     
     if 'file' not in request.files:
         return jsonify({'code': 400, 'message': '请选择文件'}), 400
@@ -170,7 +174,8 @@ def import_inventory():
                     record_type='IN' if item['quantity'] > 0 else 'OUT',
                     change_quantity=item['quantity'],
                     balance_quantity=inv.quantity,
-                    remark='Excel 批量导入'
+                    remark='Excel 批量导入',
+                    operator_name=user.username
                 )
                 db.session.add(record)
             
@@ -188,8 +193,9 @@ def import_inventory():
 @api.route('/inventory/adjust', methods=['POST'])
 def adjust_inventory():
     """手动调整库存 (入库/出库/报损)"""
-    tenant_id, error = get_tenant_from_request()
+    user, error = get_tenant_from_request()
     if error: return error
+    tenant_id = user.tenant_id
     
     data = request.json
     inventory_id = data.get('inventory_id')
@@ -220,7 +226,8 @@ def adjust_inventory():
         change_quantity=change_qty,
         balance_quantity=inventory.quantity,
         unit_cost=unit_cost or inventory.avg_cost,
-        remark=remark
+        remark=remark,
+        operator_name=user.username
     )
     
     db.session.add(record)
@@ -231,8 +238,9 @@ def adjust_inventory():
 @api.route('/inventory/records', methods=['GET'])
 def get_stock_records():
     """获取库存流水记录"""
-    tenant_id, error = get_tenant_from_request()
+    user, error = get_tenant_from_request()
     if error: return error
+    tenant_id = user.tenant_id
     
     inventory_id = request.args.get('inventory_id')
     page = int(request.args.get('page', 1))
@@ -259,6 +267,7 @@ def get_stock_records():
                 'order_no': item.order.platform_order_no if item.order else None,
                 'purchase_no': item.purchase.purchase_no if item.purchase else None,
                 'remark': item.remark,
+                'operator_name': item.operator_name,
                 'created_at': item.created_at.strftime('%Y-%m-%d %H:%M:%S')
             } for item in pagination.items],
             'total': pagination.total
@@ -267,8 +276,9 @@ def get_stock_records():
 @api.route('/inventory/<int:id>', methods=['PUT'])
 def update_inventory_item(id):
     """手动修改库存信息"""
-    tenant_id, error = get_tenant_from_request()
+    user, error = get_tenant_from_request()
     if error: return error
+    tenant_id = user.tenant_id
     
     data = request.json
     inventory = Inventory.query.filter_by(id=id, tenant_id=tenant_id).first()
@@ -293,7 +303,8 @@ def update_inventory_item(id):
                     record_type='ADJ',
                     change_quantity=change,
                     balance_quantity=new_qty,
-                    remark='手动修改数量'
+                    remark='手动修改数量',
+                    operator_name=user.username
                 )
                 db.session.add(record)
                 inventory.quantity = new_qty
@@ -307,8 +318,9 @@ def update_inventory_item(id):
 @api.route('/inventory/<int:id>', methods=['DELETE'])
 def delete_inventory_item(id):
     """手动删除库存型号"""
-    tenant_id, error = get_tenant_from_request()
+    user, error = get_tenant_from_request()
     if error: return error
+    tenant_id = user.tenant_id
     
     inventory = Inventory.query.filter_by(id=id, tenant_id=tenant_id).first()
     if not inventory:
