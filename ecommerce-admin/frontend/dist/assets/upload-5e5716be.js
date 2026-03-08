@@ -1,0 +1,1 @@
+import{s as a}from"./index-09a075b4.js";const o=t=>a({url:"/upload/orders",method:"post",data:t,headers:{"Content-Type":"multipart/form-data"}}),e=t=>a({url:"/upload/purchases",method:"post",data:t,headers:{"Content-Type":"multipart/form-data"}}),s=t=>a({url:"/upload/logistics",method:"post",data:t,headers:{"Content-Type":"multipart/form-data"}});export{e as a,s as b,o as u};

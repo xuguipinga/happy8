@@ -23,7 +23,10 @@
         "success": "业务执行成功",
         "error": "操作失败，请重试",
         "processing": "正在处理数据，请稍候...",
-        "noData": "暂无数据"
+        "noData": "暂无数据",
+        "remark": "备注",
+        "warning": "警告",
+        "loadingError": "加载数据失败"
     },
     "orders": {
         "title": "订单管理",

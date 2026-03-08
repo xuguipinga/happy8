@@ -25,7 +25,10 @@
         "processing": "Processing data, please wait...",
         "count": "P.O. Count",
         "amount": "Purchase Amount",
-        "noData": "No Data"
+        "noData": "No Data",
+        "remark": "Remark",
+        "warning": "Warning",
+        "loadingError": "Failed to load data"
     },
     "orders": {
         "title": "Order Management",
