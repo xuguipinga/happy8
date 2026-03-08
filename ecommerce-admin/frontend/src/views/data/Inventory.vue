@@ -123,7 +123,7 @@
         </el-table-column>
         <el-table-column prop="avg_cost" :label="$t('inventory.avgCost')" align="right">
           <template #default="{ row }">
-            ¥{{ row.avg_cost.toFixed(2) }}
+            ¥{{ typeof row.avg_cost === 'number' ? row.avg_cost.toFixed(2) : row.avg_cost }}
           </template>
         </el-table-column>
         <el-table-column prop="updated_at" :label="$t('common.updateTime')" width="180" />
@@ -280,13 +280,13 @@ const currentPage = ref(1)
 const pageSize = ref(20)
 const searchQuery = ref('')
 const lowStockCount = ref(0)
+const statusFilter = ref('')
 
 // Dialog/Drawer State
 const adjustDialogVisible = ref(false)
 const historyVisible = ref(false)
 const currentItem = ref(null)
 const submitLoading = ref(false)
-const statusFilter = ref('')
 const adjustForm = ref({
   quantity: 1,
   unit_cost: '',
@@ -323,7 +323,7 @@ const fetchData = async () => {
     if (res.code === 200) {
       tableData.value = res.data.items
       total.value = res.data.total
-      lowStockCount.value = tableData.value.filter(i => i.quantity < 5).length
+      lowStockCount.value = tableData.value.filter(i => i.quantity <= 5).length
     }
   } catch (error) {
     ElMessage.error(t('common.loadingError'))
@@ -406,7 +406,6 @@ const submitCreate = async () => {
     submitLoading.value = false
   }
 }
-
 
 const handleImport = async (file, clearExisting = false) => {
   if (clearExisting) {
