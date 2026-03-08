@@ -291,7 +291,10 @@
               <p v-if="record.order_no">{{ $t('orders.orderNo') }}: {{ record.order_no }}</p>
               <p v-if="record.purchase_no">{{ $t('purchases.purchaseNo') }}: {{ record.purchase_no }}</p>
               <p v-if="record.remark">{{ $t('common.remark') }}: {{ record.remark }}</p>
-              <p class="balance">{{ $t('inventory.balance') }}: {{ record.balance_quantity }}</p>
+              <div class="record-footer">
+                <span class="operator">{{ $t('inventory.operator') }}: {{ record.operator_name || 'System' }}</span>
+                <span class="balance">{{ $t('inventory.balance') }}: {{ record.balance_quantity }}</span>
+              </div>
             </div>
           </div>
         </el-timeline-item>
@@ -694,7 +697,16 @@ const handleDelete = async (row) => {
 .plus { color: #67C23A; }
 .minus { color: #F56C6C; }
 .record-details p { margin: 4px 0; font-size: 13px; color: #606266; }
-.balance { font-weight: 500; font-size: 12px; color: #909399; margin-top: 8px !important; }
+.record-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed #ebeef5;
+}
+.operator { font-size: 12px; color: #909399; }
+.balance { font-weight: 500; font-size: 12px; color: #409EFF; }
 
 .no-data { padding: 40px 0; }
 </style>
