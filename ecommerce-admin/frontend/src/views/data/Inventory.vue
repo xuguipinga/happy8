@@ -127,7 +127,7 @@
           </template>
         </el-table-column>
         <el-table-column prop="updated_at" :label="$t('common.updateTime')" width="180" />
-        <el-table-column :label="$t('common.actions')" width="360" fixed="right">
+        <el-table-column :label="$t('common.actions')" width="480" fixed="right">
           <template #default="{ row }">
             <div class="table-actions">
               <el-button type="primary" size="small" @click="openAdjustDialog(row, 'IN')">
