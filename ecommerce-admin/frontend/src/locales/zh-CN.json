@@ -119,9 +119,10 @@
         "addNew": "新增库存型号",
         "createTitle": "手动新增库存",
         "selectPurchaseFirst": "请先选择采购单",
-        "status": "库存状态",
-        "normal": "普通库存",
-        "advanced": "高级库存"
+        "status": "库存健康度",
+        "normal": "库存正常",
+        "lowStock": "库存告急",
+        "outOfStock": "暂时无货"
     },
     "purchases": {
         "title": "采购管理",

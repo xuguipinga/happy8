@@ -22,8 +22,12 @@ def get_inventory():
     if search:
         query = query.filter(Inventory.model.ilike(f'%{search}%') | Inventory.spec.ilike(f'%{search}%'))
     
-    if status:
-        query = query.filter_by(status=status)
+    if status == 'NORMAL':
+        query = query.filter(Inventory.quantity > 5)
+    elif status == 'LOW':
+        query = query.filter(Inventory.quantity > 0, Inventory.quantity <= 5)
+    elif status == 'OUT':
+        query = query.filter(Inventory.quantity <= 0)
     
     pagination = query.order_by(Inventory.updated_at.desc()).paginate(page=page, per_page=per_page)
     

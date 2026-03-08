@@ -138,9 +138,10 @@
         "addNew": "Add New Model",
         "createTitle": "Create Inventory Item",
         "selectPurchaseFirst": "Please select purchase order first",
-        "status": "Inventory Status",
-        "normal": "Normal Stock",
-        "advanced": "Advanced Stock"
+        "status": "Stock Status",
+        "normal": "Healthy",
+        "lowStock": "Low Stock",
+        "outOfStock": "Out of Stock"
     },
     "shortcuts": {
         "today": "Today",

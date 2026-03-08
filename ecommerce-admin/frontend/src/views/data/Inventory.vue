@@ -91,18 +91,25 @@
         <el-table-column 
           prop="status" 
           :label="$t('inventory.status')" 
-          width="120"
+          width="130"
           align="center"
           :filters="[
             { text: $t('inventory.normal'), value: 'NORMAL' },
-            { text: $t('inventory.advanced'), value: 'ADVANCED' }
+            { text: $t('inventory.lowStock'), value: 'LOW' },
+            { text: $t('inventory.outOfStock'), value: 'OUT' }
           ]"
           :filter-multiple="false"
           column-key="status"
         >
           <template #default="{ row }">
-            <el-tag :type="row.status === 'ADVANCED' ? 'warning' : 'info'" size="small" effect="light">
-              {{ row.status === 'ADVANCED' ? $t('inventory.advanced') : $t('inventory.normal') }}
+            <el-tag v-if="row.quantity > 5" type="success" size="small" effect="light">
+              {{ $t('inventory.normal') }}
+            </el-tag>
+            <el-tag v-elif="row.quantity > 0" type="danger" size="small" effect="dark">
+              {{ $t('inventory.lowStock') }}
+            </el-tag>
+            <el-tag v-else type="info" size="small" effect="plain">
+              {{ $t('inventory.outOfStock') }}
             </el-tag>
           </template>
         </el-table-column>
@@ -209,12 +216,6 @@
             <template #prefix>¥</template>
           </el-input>
         </el-form-item>
-        <el-form-item :label="$t('inventory.status')">
-          <el-radio-group v-model="createForm.status">
-            <el-radio label="NORMAL">{{ $t('inventory.normal') }}</el-radio>
-            <el-radio label="ADVANCED">{{ $t('inventory.advanced') }}</el-radio>
-          </el-radio-group>
-        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="createDialogVisible = false">{{ $t('common.cancel') }}</el-button>
@@ -298,8 +299,7 @@ const createForm = ref({
   spec: '',
   unit: 'pcs',
   quantity: 0,
-  avg_cost: '',
-  status: 'NORMAL'
+  avg_cost: ''
 })
 const historyData = ref([])
 
