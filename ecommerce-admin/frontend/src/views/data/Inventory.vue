@@ -105,7 +105,7 @@
             <el-tag v-if="row.quantity > 5" type="success" size="small" effect="light">
               {{ $t('inventory.normal') }}
             </el-tag>
-            <el-tag v-elif="row.quantity > 0" type="danger" size="small" effect="dark">
+            <el-tag v-else-if="row.quantity > 0" type="danger" size="small" effect="dark">
               {{ $t('inventory.lowStock') }}
             </el-tag>
             <el-tag v-else type="info" size="small" effect="plain">
