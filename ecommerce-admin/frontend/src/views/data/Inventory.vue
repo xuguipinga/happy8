@@ -3,45 +3,45 @@
     <div class="page-header">
       <h2>{{ $t('inventory.title') }}</h2>
       <div class="header-right">
-        <el-button type="primary" @click="openCreateDialog" style="margin-right: 10px;">
-          <el-icon class="el-icon--left"><Plus /></el-icon>
-          {{ $t('inventory.addNew') }}
-        </el-button>
-        <el-upload
-          class="upload-demo"
-          action="#"
-          :auto-upload="false"
-          :show-file-list="false"
-          :on-change="handleImport"
-          accept=".xlsx, .xls"
-          style="margin-right: 15px;"
-        >
-          <el-button type="success" plain>
-            <el-icon class="el-icon--left"><Upload /></el-icon>
-            {{ $t('inventory.importExcel') }}
+        <div class="action-buttons">
+          <el-button type="primary" @click="openCreateDialog">
+            <el-icon class="el-icon--left"><Plus /></el-icon>
+            {{ $t('inventory.addNew') }}
           </el-button>
-        </el-upload>
-        <el-upload
-          class="upload-demo"
-          action="#"
-          :auto-upload="false"
-          :show-file-list="false"
-          :on-change="(file) => handleImport(file, true)"
-          accept=".xlsx, .xls"
-          style="margin-right: 15px;"
-        >
-          <el-button type="danger" plain>
-            <el-icon class="el-icon--left"><Delete /></el-icon>
-            {{ $t('inventory.resetImport') }}
-          </el-button>
-        </el-upload>
+          <el-upload
+            class="upload-inline"
+            action="#"
+            :auto-upload="false"
+            :show-file-list="false"
+            :on-change="handleImport"
+            accept=".xlsx, .xls"
+          >
+            <el-button type="success" plain>
+              <el-icon class="el-icon--left"><Upload /></el-icon>
+              {{ $t('inventory.importExcel') }}
+            </el-button>
+          </el-upload>
+          <el-upload
+            class="upload-inline"
+            action="#"
+            :auto-upload="false"
+            :show-file-list="false"
+            :on-change="(file) => handleImport(file, true)"
+            accept=".xlsx, .xls"
+          >
+            <el-button type="danger" plain title="清空并重新导入">
+              <el-icon class="el-icon--left"><Delete /></el-icon>
+              {{ $t('inventory.resetImport') }}
+            </el-button>
+          </el-upload>
+        </div>
         <el-input
           v-model="searchQuery"
           :placeholder="$t('common.search') + '...'"
           clearable
           @clear="handleSearch"
           @keyup.enter="handleSearch"
-          style="width: 250px;"
+          class="search-input"
         >
           <template #append>
             <el-button @click="handleSearch">
@@ -90,9 +90,9 @@
           </template>
         </el-table-column>
         <el-table-column prop="updated_at" :label="$t('common.updateTime')" width="180" />
-        <el-table-column :label="$t('common.actions')" width="280" fixed="right">
+        <el-table-column :label="$t('common.actions')" width="320" fixed="right">
           <template #default="{ row }">
-            <el-button-group>
+            <div class="table-actions">
               <el-button type="primary" size="small" @click="openAdjustDialog(row, 'IN')">
                 {{ $t('inventory.inbound') }}
               </el-button>
@@ -102,10 +102,10 @@
               <el-button type="danger" size="small" @click="openAdjustDialog(row, 'ADJ')">
                 {{ $t('inventory.adjustment') }}
               </el-button>
-            </el-button-group>
-            <el-button link type="primary" style="margin-left: 10px" @click="viewHistory(row)">
-              {{ $t('inventory.history') }}
-            </el-button>
+              <el-button link type="primary" @click="viewHistory(row)">
+                {{ $t('inventory.history') }}
+              </el-button>
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -454,7 +454,33 @@ const getRecordType = (type) => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
+  background: #fff;
+  padding: 16px 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px 0 rgba(0,0,0,0.05);
+}
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.upload-inline {
+  display: inline-block;
+}
+.search-input {
+  width: 250px;
+}
+.table-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
 }
 .page-header h2 { margin: 0; font-size: 20px; font-weight: 600; }
 
