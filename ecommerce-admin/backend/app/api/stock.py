@@ -264,3 +264,63 @@ def get_stock_records():
             'total': pagination.total
         }
     })
+@api.route('/inventory/<int:id>', methods=['PUT'])
+def update_inventory_item(id):
+    """手动修改库存信息"""
+    tenant_id, error = get_tenant_from_request()
+    if error: return error
+    
+    data = request.json
+    inventory = Inventory.query.filter_by(id=id, tenant_id=tenant_id).first()
+    if not inventory:
+        return jsonify({'code': 404, 'message': '库存项目未找到'}), 404
+        
+    try:
+        # 更新字段
+        if 'model' in data: inventory.model = data['model']
+        if 'spec' in data: inventory.spec = data['spec']
+        if 'unit' in data: inventory.unit = data['unit']
+        if 'avg_cost' in data: inventory.avg_cost = Decimal(str(data['avg_cost']))
+        
+        # 如果直接修改了数量，记录一条流水
+        if 'quantity' in data:
+            new_qty = Decimal(str(data['quantity']))
+            if new_qty != inventory.quantity:
+                change = new_qty - inventory.quantity
+                record = StockRecord(
+                    tenant_id=tenant_id,
+                    inventory_id=inventory.id,
+                    record_type='ADJ',
+                    change_quantity=change,
+                    balance_quantity=new_qty,
+                    remark='手动修改数量'
+                )
+                db.session.add(record)
+                inventory.quantity = new_qty
+        
+        db.session.commit()
+        return jsonify({'code': 200, 'message': '修改成功'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'code': 500, 'message': str(e)}), 500
+
+@api.route('/inventory/<int:id>', methods=['DELETE'])
+def delete_inventory_item(id):
+    """手动删除库存型号"""
+    tenant_id, error = get_tenant_from_request()
+    if error: return error
+    
+    inventory = Inventory.query.filter_by(id=id, tenant_id=tenant_id).first()
+    if not inventory:
+        return jsonify({'code': 404, 'message': '库存项目未找到'}), 404
+        
+    try:
+        # 删除相关的流水记录
+        StockRecord.query.filter_by(inventory_id=id).delete()
+        # 删除主表记录
+        db.session.delete(inventory)
+        db.session.commit()
+        return jsonify({'code': 200, 'message': '删除成功'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'code': 500, 'message': str(e)}), 500

@@ -141,7 +141,11 @@
         "status": "Stock Status",
         "normal": "Healthy",
         "lowStock": "Low Stock",
-        "outOfStock": "Out of Stock"
+        "outOfStock": "Out of Stock",
+        "edit": "Edit",
+        "delete": "Delete",
+        "editTitle": "Edit Inventory Info",
+        "confirmDelete": "Are you sure you want to delete this model? This will also delete all associated movement records!"
     },
     "shortcuts": {
         "today": "Today",

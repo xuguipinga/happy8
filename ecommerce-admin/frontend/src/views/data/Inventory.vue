@@ -127,7 +127,7 @@
           </template>
         </el-table-column>
         <el-table-column prop="updated_at" :label="$t('common.updateTime')" width="180" />
-        <el-table-column :label="$t('common.actions')" width="320" fixed="right">
+        <el-table-column :label="$t('common.actions')" width="360" fixed="right">
           <template #default="{ row }">
             <div class="table-actions">
               <el-button type="primary" size="small" @click="openAdjustDialog(row, 'IN')">
@@ -141,6 +141,12 @@
               </el-button>
               <el-button link type="primary" @click="viewHistory(row)">
                 {{ $t('inventory.history') }}
+              </el-button>
+              <el-button link type="primary" @click="handleEdit(row)">
+                {{ $t('inventory.edit') }}
+              </el-button>
+              <el-button link type="danger" @click="handleDelete(row)">
+                {{ $t('inventory.delete') }}
               </el-button>
             </div>
           </template>
@@ -225,6 +231,40 @@
       </template>
     </el-dialog>
 
+    <!-- Edit Dialog -->
+    <el-dialog
+      v-model="editDialogVisible"
+      :title="$t('inventory.editTitle')"
+      width="450px"
+      class="premium-dialog"
+    >
+      <el-form :model="editForm" label-width="120px" style="padding: 20px 0;">
+        <el-form-item :label="$t('inventory.model')" required>
+          <el-input v-model="editForm.model" />
+        </el-form-item>
+        <el-form-item :label="$t('inventory.spec')">
+          <el-input v-model="editForm.spec" />
+        </el-form-item>
+        <el-form-item :label="$t('inventory.unit')">
+          <el-input v-model="editForm.unit" />
+        </el-form-item>
+        <el-form-item :label="$t('inventory.quantity')">
+          <el-input-number v-model="editForm.quantity" :step="1" />
+        </el-form-item>
+        <el-form-item :label="$t('inventory.avgCost')">
+          <el-input v-model="editForm.avg_cost">
+            <template #prefix>¥</template>
+          </el-input>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="editDialogVisible = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="submitUpdate" :loading="submitLoading">
+          {{ $t('common.confirm') }}
+        </el-button>
+      </template>
+    </el-dialog>
+
     <!-- History Drawer -->
     <el-drawer
       v-model="historyVisible"
@@ -295,6 +335,15 @@ const adjustForm = ref({
 })
 const createDialogVisible = ref(false)
 const createForm = ref({
+  model: '',
+  spec: '',
+  unit: 'pcs',
+  quantity: 0,
+  avg_cost: ''
+})
+const editDialogVisible = ref(false)
+const editForm = ref({
+  id: null,
   model: '',
   spec: '',
   unit: 'pcs',
@@ -503,6 +552,69 @@ const getRecordType = (type) => {
   if (type === 'IN') return 'primary'
   if (type === 'OUT') return 'warning'
   return 'danger'
+}
+
+const handleEdit = (row) => {
+  editForm.value = {
+    id: row.id,
+    model: row.model,
+    spec: row.spec,
+    unit: row.unit,
+    quantity: row.quantity,
+    avg_cost: row.avg_cost
+  }
+  editDialogVisible.value = true
+}
+
+const submitUpdate = async () => {
+  if (!editForm.value.model) {
+    ElMessage.warning(t('inventory.model') + ' ' + t('common.required'))
+    return
+  }
+  submitLoading.value = true
+  try {
+    const res = await request({
+      url: `/inventory/${editForm.value.id}`,
+      method: 'put',
+      data: editForm.value
+    })
+    if (res.code === 200) {
+      ElMessage.success(t('common.success'))
+      editDialogVisible.value = false
+      fetchData()
+    }
+  } catch (error) {
+    ElMessage.error(error.response?.data?.message || t('common.error'))
+  } finally {
+    submitLoading.value = false
+  }
+}
+
+const handleDelete = async (row) => {
+  try {
+    await ElMessageBox.confirm(
+      t('inventory.confirmDelete'),
+      t('common.warning'),
+      {
+        confirmButtonText: t('common.confirm'),
+        cancelButtonText: t('common.cancel'),
+        type: 'warning',
+      }
+    )
+    
+    const res = await request({
+      url: `/inventory/${row.id}`,
+      method: 'delete'
+    })
+    if (res.code === 200) {
+      ElMessage.success(t('common.success'))
+      fetchData()
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(error.response?.data?.message || t('common.error'))
+    }
+  }
 }
 </script>
 
