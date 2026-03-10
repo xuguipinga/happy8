@@ -29,13 +29,14 @@ def get_purchases():
     
     if search:
         search_term = f"%{search}%"
-        query = query.filter(
+        # We need to join PurchaseItem to search its fields, and use distinct to prevent duplicate Parents
+        query = query.outerjoin(PurchaseItem, Purchase.id == PurchaseItem.purchase_id).filter(
             (Purchase.purchase_no.like(search_term)) | 
-            (Purchase.sku.like(search_term)) |
-            (Purchase.product_name.like(search_term)) |
+            (PurchaseItem.sku.like(search_term)) |
+            (PurchaseItem.product_name.like(search_term)) |
             (Purchase.supplier_company.like(search_term)) |
             (Purchase.logistics_no.like(search_term))
-        )
+        ).distinct()
 
     if start_date:
         query = query.filter(Purchase.create_time >= start_date)
@@ -59,6 +60,21 @@ def get_purchases():
     
     data = []
     for p in purchases:
+        purchase_items = []
+        for item in p.items:
+            purchase_items.append({
+                'id': item.id,
+                'sku': item.sku,
+                'product_name': item.product_name,
+                'model': item.model,
+                'material_no': item.material_no,
+                'product_no': item.product_no,
+                'offer_id': item.offer_id,
+                'quantity': float(item.quantity) if item.quantity else 0,
+                'unit_price': float(item.unit_price) if item.unit_price else 0,
+                'goods_amount': float(item.goods_amount) if item.goods_amount else 0
+            })
+            
         data.append({
             'id': p.id,
             'purchase_no': p.purchase_no,
@@ -67,9 +83,7 @@ def get_purchases():
             'buyer_company': p.buyer_company,
             'buyer_member': p.buyer_member,
             'sku': p.sku,
-            'product_name': p.product_name,
             'quantity': float(p.quantity) if p.quantity else 0,
-            'unit_price': float(p.unit_price) if p.unit_price else 0,
             'goods_amount': float(p.goods_amount) if p.goods_amount else 0,
             'shipping_fee': float(p.shipping_fee) if p.shipping_fee else 0,
             'discount': float(p.discount) if p.discount else 0,
@@ -79,25 +93,16 @@ def get_purchases():
             'pay_time': p.pay_time.isoformat() if p.pay_time else None,
             'logistics_company': p.logistics_company,
             'logistics_no': p.logistics_no,
-            'logistics_no': p.logistics_no,
             'receiver_address': p.receiver_address,
-            
-            # New fields
             'receiver_name': p.receiver_name,
             'receiver_phone': p.receiver_phone,
             'unit': p.unit,
-            'model': p.model,
-            'material_no': p.material_no,
             'buyer_note': p.buyer_note,
             'is_dropship': p.is_dropship,
             'upstream_order_no': p.upstream_order_no,
             'order_batch_no': p.order_batch_no,
-            
-            # Additional fields
             'shipper_name': p.shipper_name,
             'zip_code': p.zip_code,
-            'product_no': p.product_no,
-            'offer_id': p.offer_id,
             'category': p.category,
             'agent_name': p.agent_name,
             'agent_contact': p.agent_contact,
@@ -106,7 +111,8 @@ def get_purchases():
             'downstream_channel': p.downstream_channel,
             'order_company_entity': p.order_company_entity,
             'initiator_login_name': p.initiator_login_name,
-            'is_auto_pay': p.is_auto_pay
+            'is_auto_pay': p.is_auto_pay,
+            'items': purchase_items
         })
         
     return jsonify({

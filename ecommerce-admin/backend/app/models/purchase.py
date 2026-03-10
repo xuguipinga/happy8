@@ -11,13 +11,11 @@ class Purchase(db.Model):
     supplier_member = db.Column(db.String(100), comment='供应商对接人')
     buyer_company = db.Column(db.String(150), comment='采购方公司')
     buyer_member = db.Column(db.String(100), comment='采购员')
-    sku = db.Column(db.String(255), db.ForeignKey('biz_products.sku'), index=True, nullable=False, comment='SKU')
-    product_name = db.Column(db.String(255), comment='货品标题')
-    quantity = db.Column(db.Numeric(12, 4), comment='采购数量')
-    unit_price = db.Column(db.Numeric(12, 4), comment='采购单价')
+    sku = db.Column(db.String(255), comment='SKU') # Keep as optional summary for simple orders if needed, but primary is in PurchaseItem
+    quantity = db.Column(db.Numeric(12, 4), comment='采购总数量')
     goods_amount = db.Column(db.Numeric(12, 4), comment='货品总价')
-    shipping_fee = db.Column(db.Numeric(12, 4), comment='运费')
-    discount = db.Column(db.Numeric(12, 4), comment='折扣')
+    shipping_fee = db.Column(db.Numeric(12, 4), comment='总运费')
+    discount = db.Column(db.Numeric(12, 4), comment='总折扣')
     actual_payment = db.Column(db.Numeric(12, 4), comment='实付款')
     order_status = db.Column(db.String(50), comment='采购状态')
     create_time = db.Column(db.DateTime, default=datetime.utcnow, comment='创建时间')
@@ -31,8 +29,6 @@ class Purchase(db.Model):
     receiver_phone = db.Column(db.String(50), comment='联系电话')
     receiver_mobile = db.Column(db.String(50), comment='联系手机')
     unit = db.Column(db.String(20), comment='单位')
-    model = db.Column(db.String(100), comment='型号')
-    material_no = db.Column(db.String(100), comment='物料编号')
     buyer_note = db.Column(db.Text, comment='买家留言')
     
     invoice_title = db.Column(db.String(200), comment='发票抬头')
@@ -48,8 +44,6 @@ class Purchase(db.Model):
     # 更多完善字段
     shipper_name = db.Column(db.String(100), comment='发货方')
     zip_code = db.Column(db.String(20), comment='邮编')
-    product_no = db.Column(db.String(100), comment='货号')
-    offer_id = db.Column(db.String(100), comment='Offer ID')
     category = db.Column(db.String(100), comment='货品种类')
     agent_name = db.Column(db.String(100), comment='代理商姓名')
     agent_contact = db.Column(db.String(100), comment='代理商联系方式')
@@ -60,5 +54,31 @@ class Purchase(db.Model):
     initiator_login_name = db.Column(db.String(100), comment='发起人登录名')
     is_auto_pay = db.Column(db.String(100), comment='是否发起免密支付')
 
+    # 关联明细
+    items = db.relationship('PurchaseItem', backref='purchase', lazy='dynamic', cascade='all, delete-orphan')
+
     def __repr__(self):
         return f'<Purchase {self.purchase_no}>'
+
+class PurchaseItem(db.Model):
+    __tablename__ = 'biz_purchase_items'
+
+    id = db.Column(db.BigInteger().with_variant(db.Integer, "sqlite"), primary_key=True, autoincrement=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey('sys_tenants.id'), nullable=False, index=True, comment='租户ID')
+    purchase_id = db.Column(db.BigInteger().with_variant(db.Integer, "sqlite"), db.ForeignKey('biz_purchases.id', ondelete='CASCADE'), nullable=False, index=True, comment='采购主表ID')
+    
+    sku = db.Column(db.String(255), db.ForeignKey('biz_products.sku'), index=True, nullable=False, comment='SKU')
+    product_name = db.Column(db.String(255), comment='货品标题')
+    model = db.Column(db.String(100), comment='型号')
+    material_no = db.Column(db.String(100), comment='物料编号')
+    product_no = db.Column(db.String(100), comment='货号')
+    offer_id = db.Column(db.String(100), comment='Offer ID')
+    
+    quantity = db.Column(db.Numeric(12, 4), nullable=False, comment='采购数量')
+    unit_price = db.Column(db.Numeric(12, 4), comment='采购单价')
+    goods_amount = db.Column(db.Numeric(12, 4), comment='单项总价')
+    
+    create_time = db.Column(db.DateTime, default=datetime.utcnow, comment='创建时间')
+
+    def __repr__(self):
+        return f'<PurchaseItem {self.sku} (Qty: {self.quantity})>'

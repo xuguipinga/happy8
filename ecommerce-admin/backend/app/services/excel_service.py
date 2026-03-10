@@ -2,7 +2,7 @@ import pandas as pd
 from datetime import datetime
 from app.extensions import db
 from app.models.order import Order
-from app.models.purchase import Purchase
+from app.models.purchase import Purchase, PurchaseItem
 from app.models.logistics import Logistics
 from app.models.product import Product
 import logging
@@ -366,27 +366,6 @@ class ExcelService:
             exist_cols = [c for c in ffill_cols if c in df.columns]
             if exist_cols:
                 df[exist_cols] = df[exist_cols].ffill()
-                
-            # ===== 新增：运费、优惠和实付款按货品总价分摊 =====
-            # 为避免一单多品时，多次累加产生报表统计错误，现将订单级金额按货品总价比例分摊给每个SKU子单
-            alloc_cols = ['运费(元)', '涨价或折扣(元)', '实付款(元)']
-            for col in alloc_cols + ['货品总价(元)']:
-                if col in df.columns:
-                    df[col + '_num'] = pd.to_numeric(df[col], errors='coerce').fillna(0)
-
-            if '订单编号' in df.columns and '货品总价(元)_num' in df.columns:
-                group_sums = df.groupby('订单编号')['货品总价(元)_num'].transform('sum')
-                
-                # 如果订单总货品金额为0（如赠品），则平均分摊
-                import numpy as np
-                group_counts = df.groupby('订单编号')['订单编号'].transform('count')
-                df['ratio'] = np.where(group_sums > 0, df['货品总价(元)_num'] / group_sums, 1.0 / group_counts)
-                
-                for col in alloc_cols:
-                    if col + '_num' in df.columns:
-                        # 分摊计算，替换原有字符串数据
-                        df[col] = (df[col + '_num'] * df['ratio']).round(2).astype(str)
-            # ===============================================
 
             success_count = 0
             errors = []
@@ -409,20 +388,18 @@ class ExcelService:
                         else:
                             sku_val = f"NO_SKU_ROW_{index+2}"
 
-                    # 0. 去重校验: 检查该采购单+SKU是否已经导入过
+                    # 0. 获取主采购单，确保唯一
                     existing_purchase = Purchase.query.filter_by(
                         purchase_no=purchase_no, 
-                        sku=sku_val, 
                         tenant_id=tenant_id
                     ).first()
                     
                     if existing_purchase:
-                        # 如果已存在，我们仅更新基础信息，跳过库存逻辑（防止重复增加库存）
-                        is_new_purchase = False
                         purchase = existing_purchase
                     else:
-                        is_new_purchase = True
                         purchase = Purchase(purchase_no=purchase_no, tenant_id=tenant_id)
+                        db.session.add(purchase)
+                        db.session.flush() # 获取 ID
                     
                     # 1. 优先提取并处理 SKU (Product)
                     product_name_val = ExcelService._parse_str(row.get('货品标题'))
@@ -433,12 +410,24 @@ class ExcelService:
                             db.session.add(product)
                             db.session.flush()
 
-                    # 2. 处理 库存增加 (仅对新采购记录)
-                    if is_new_purchase:
+                    # 1.5 检查此项 Item 是否已经存在于该订单下
+                    item_qty = ExcelService._parse_decimal(row.get('数量'))
+                    item_unit_price = ExcelService._parse_decimal(row.get('单价(元)'))
+                    item_goods_amount = ExcelService._parse_decimal(row.get('货品总价(元)'))
+                    
+                    existing_item = PurchaseItem.query.filter_by(
+                        purchase_id=purchase.id,
+                        sku=sku_val
+                    ).first()
+                    
+                    # 只有全新项才处理库存
+                    is_new_item = existing_item is None
+
+                    # 2. 处理 库存增加 (仅对新明细)
+                    if is_new_item:
                         # 提取型号和规格
                         model, spec = ExcelService._parse_sku_specification(sku_val)
                         if not model:
-                             # 尝试从标题匹配 (例如: "B025 黑 18cm")
                              import re
                              model_match = re.search(r'\b([A-Z]\d{3,})\b', product_name_val or '')
                              if model_match:
@@ -462,10 +451,12 @@ class ExcelService:
                                 db.session.add(inventory)
                                 db.session.flush()
 
-                            in_qty = ExcelService._parse_decimal(row.get('数量'))
-                            in_price = ExcelService._parse_decimal(row.get('单价(元)'))
-                            shipping_fee = ExcelService._parse_decimal(row.get('运费(元)'))
-                            actual_total = ExcelService._parse_decimal(row.get('货品总价(元)')) + shipping_fee
+                            # 此处的落地成本计算比较复杂，因为主订单运费等可能未读全。
+                            # 暂且简单地将该项金额作为 landed_unit_price
+                            in_qty = item_qty
+                            in_price = item_unit_price
+                            
+                            actual_total = item_goods_amount
                             
                             if in_qty > 0:
                                 # 计算本次采购的落地单价 (Landed Cost per unit)
@@ -492,23 +483,38 @@ class ExcelService:
                                 record = StockRecord(
                                     tenant_id=tenant_id,
                                     inventory_id=inventory.id,
-                                    purchase_id=None, # 稍后关联
+                                    purchase_id=purchase.id,
                                     record_type='IN',
                                     change_quantity=in_qty,
                                     balance_quantity=new_qty,
-                                    unit_cost=land_unit_price,
+                                    unit_cost=landed_unit_price,
                                     remark=f"Purchase {purchase_no} auto-inbound (Landed)"
                                 )
                                 inventory.quantity = new_qty
                                 db.session.add(record)
-                                purchase._pending_stock_record = record
 
-                    # 3. 处理 Purchase 字段更新
-                    purchase.sku = sku_val
-                    purchase.product_name = product_name_val
-                    purchase.quantity = ExcelService._parse_decimal(row.get('数量'))
-                    purchase.unit_price = ExcelService._parse_decimal(row.get('单价(元)'))
-                    purchase.goods_amount = ExcelService._parse_decimal(row.get('货品总价(元)'))
+                        # 保存 Item 记录
+                        p_item = PurchaseItem(
+                            tenant_id=tenant_id,
+                            purchase_id=purchase.id,
+                            sku=sku_val,
+                            product_name=product_name_val,
+                            model=ExcelService._parse_str(row.get('型号')),
+                            material_no=ExcelService._parse_str(row.get('物料编号')) or ExcelService._parse_str(row.get('货号')),
+                            product_no=ExcelService._parse_str(row.get('货号')),
+                            offer_id=ExcelService._parse_str(row.get('Offer ID')),
+                            quantity=item_qty,
+                            unit_price=item_unit_price,
+                            goods_amount=item_goods_amount
+                        )
+                        db.session.add(p_item)
+                        db.session.flush()
+
+                    # 3. 处理 Purchase 主订单字段更新 (每次覆盖更新成最新行的内容)
+                    purchase.sku = '多SKU订单' if purchase.items.count() > 1 else sku_val
+                    
+                    purchase.quantity = sum(i.quantity for i in purchase.items)
+                    purchase.goods_amount = sum(i.goods_amount for i in purchase.items)
                     purchase.shipping_fee = ExcelService._parse_decimal(row.get('运费(元)'))
                     purchase.discount = ExcelService._parse_decimal(row.get('涨价或折扣(元)'))
                     purchase.actual_payment = ExcelService._parse_decimal(row.get('实付款(元)'))
@@ -528,8 +534,6 @@ class ExcelService:
                     purchase.receiver_phone = ExcelService._parse_str(row.get('联系电话'))
                     purchase.receiver_mobile = ExcelService._parse_str(row.get('联系手机'))
                     purchase.unit = ExcelService._parse_str(row.get('单位'))
-                    purchase.model = ExcelService._parse_str(row.get('型号'))
-                    purchase.material_no = ExcelService._parse_str(row.get('物料编号')) or ExcelService._parse_str(row.get('货号'))
                     purchase.buyer_note = ExcelService._parse_str(row.get('买家留言'))
                     
                     purchase.invoice_title = ExcelService._parse_str(row.get('发票：购货单位名称'))
@@ -546,8 +550,6 @@ class ExcelService:
                     
                     purchase.shipper_name = ExcelService._parse_str(row.get('发货方'))
                     purchase.zip_code = ExcelService._parse_str(row.get('邮编'))
-                    purchase.product_no = ExcelService._parse_str(row.get('货号'))
-                    purchase.offer_id = ExcelService._parse_str(row.get('Offer ID'))
                     purchase.category = ExcelService._parse_str(row.get('货品种类'))
                     purchase.agent_name = ExcelService._parse_str(row.get('代理商姓名'))
                     purchase.agent_contact = ExcelService._parse_str(row.get('代理商联系方式'))
@@ -555,15 +557,9 @@ class ExcelService:
                     purchase.micro_order_no = ExcelService._parse_str(row.get('微商订单号'))
                     purchase.downstream_channel = ExcelService._parse_str(row.get('下游渠道'))
                     purchase.order_company_entity = ExcelService._parse_str(row.get('下单公司主体'))
-                    purchase.initiator_login_name = ExcelService._parse_str(row.get('发起人登录名'))
                     purchase.is_auto_pay = ExcelService._parse_str(row.get('是否发起免密支付(1:淘货源诚e赊免密支付2:批量下单免密支付)'))
                     
-                    db.session.add(purchase)
-                    db.session.flush()
-                    
-                    # 关联库存流水
-                    if hasattr(purchase, '_pending_stock_record'):
-                        purchase._pending_stock_record.purchase_id = purchase.id
+                    # 避免在子商品循环中计重复主单，此处不需重复db.session.add(purchase)
 
                     success_count += 1
                 except Exception as e:

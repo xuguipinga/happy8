@@ -90,13 +90,34 @@
         @sort-change="handleSortChange"
         :default-sort="{ prop: 'create_time', order: 'descending' }"
       >
+        <el-table-column type="expand">
+          <template #default="props">
+            <div style="padding: 15px; background-color: #f8f9fc;">
+              <el-table :data="props.row.items" border size="small" style="width: 100%">
+                <el-table-column prop="sku" label="SKU" width="180" />
+                <el-table-column prop="product_name" label="商品名称" min-width="200" />
+                <el-table-column prop="model" label="型号" width="120" />
+                <el-table-column prop="quantity" label="数量" width="100" align="center" />
+                <el-table-column prop="unit_price" label="单价(元)" width="120" align="right">
+                    <template #default="scope">¥{{ scope.row.unit_price }}</template>
+                </el-table-column>
+                <el-table-column prop="goods_amount" label="总价(元)" width="120" align="right">
+                    <template #default="scope">¥{{ scope.row.goods_amount }}</template>
+                </el-table-column>
+              </el-table>
+            </div>
+          </template>
+        </el-table-column>
+
         <el-table-column prop="purchase_no" :label="$t('purchases.purchaseNo')" width="180" fixed sortable="custom" />
         
-        <el-table-column :label="$t('purchases.productInfo')" min-width="250">
+        <el-table-column label="概览" min-width="150">
           <template #default="scope">
             <div class="product-info">
-              <div class="product-name">{{ scope.row.product_name }}</div>
-              <div class="product-sku">SKU: {{ scope.row.sku }}</div>
+              <div class="product-name">{{ scope.row.sku }}</div>
+              <div class="product-sku" v-if="scope.row.items && scope.row.items.length > 0">
+                 共 {{ scope.row.items.length }} 种商品
+              </div>
             </div>
           </template>
         </el-table-column>
@@ -104,9 +125,8 @@
         <el-table-column :label="$t('purchases.purchaseInfo')" width="180">
           <template #default="scope">
             <div class="purchase-info">
-              <div>数量: {{ scope.row.quantity }}</div>
-              <div>单价: {{ scope.row.unit_price }}</div>
-              <div>总价: {{ scope.row.goods_amount }}</div>
+              <div>总件数: {{ scope.row.quantity }}</div>
+              <div>货单价: {{ scope.row.goods_amount }}</div>
             </div>
           </template>
         </el-table-column>
@@ -179,27 +199,38 @@
       <el-dialog
         v-model="detailsDialogVisible"
         :title="$t('common.details')"
-        width="60%"
+        width="65%"
       >
-        <el-descriptions :column="2" border v-if="currentPurchase">
-            <el-descriptions-item :label="$t('purchases.purchaseNo')">{{ currentPurchase.purchase_no }}</el-descriptions-item>
-            <el-descriptions-item label="创建时间">{{ currentPurchase.create_time }}</el-descriptions-item>
-            <el-descriptions-item label="供应商公司">{{ currentPurchase.supplier_company }}</el-descriptions-item>
-            <el-descriptions-item label="供应商会员">{{ currentPurchase.supplier_member }}</el-descriptions-item>
-            <el-descriptions-item :label="$t('common.status')">{{ currentPurchase.order_status }}</el-descriptions-item>
-            <el-descriptions-item label="SKU">{{ currentPurchase.sku }}</el-descriptions-item>
-            <el-descriptions-item label="商品名称" :span="2">{{ currentPurchase.product_name }}</el-descriptions-item>
-            <el-descriptions-item label="数量">{{ currentPurchase.quantity }}</el-descriptions-item>
-            <el-descriptions-item label="单价">{{ currentPurchase.unit_price }}</el-descriptions-item>
-            <el-descriptions-item label="货品总价">{{ currentPurchase.goods_amount }}</el-descriptions-item>
-            <el-descriptions-item label="运费">{{ currentPurchase.shipping_fee }}</el-descriptions-item>
-            <el-descriptions-item label="折扣/涨价">{{ currentPurchase.discount }}</el-descriptions-item>
-            <el-descriptions-item label="实付金额">{{ currentPurchase.actual_payment }}</el-descriptions-item>
-            <el-descriptions-item label="物流公司">{{ currentPurchase.logistics_company }}</el-descriptions-item>
-            <el-descriptions-item label="物流单号">{{ currentPurchase.logistics_no }}</el-descriptions-item>
-            <el-descriptions-item label="付款时间">{{ currentPurchase.pay_time }}</el-descriptions-item>
-            <el-descriptions-item label="收货地址" :span="2">{{ currentPurchase.receiver_address }}</el-descriptions-item>
-        </el-descriptions>
+        <div v-if="currentPurchase">
+            <el-descriptions :column="2" border>
+                <el-descriptions-item :label="$t('purchases.purchaseNo')">{{ currentPurchase.purchase_no }}</el-descriptions-item>
+                <el-descriptions-item label="创建时间">{{ currentPurchase.create_time }}</el-descriptions-item>
+                <el-descriptions-item label="供应商公司">{{ currentPurchase.supplier_company }}</el-descriptions-item>
+                <el-descriptions-item label="供应商会员">{{ currentPurchase.supplier_member }}</el-descriptions-item>
+                <el-descriptions-item :label="$t('common.status')">{{ currentPurchase.order_status }}</el-descriptions-item>
+                <el-descriptions-item label="总数量">{{ currentPurchase.quantity }}</el-descriptions-item>
+                <el-descriptions-item label="货品总价">{{ currentPurchase.goods_amount }}</el-descriptions-item>
+                <el-descriptions-item label="运费">{{ currentPurchase.shipping_fee }}</el-descriptions-item>
+                <el-descriptions-item label="折扣/涨价">{{ currentPurchase.discount }}</el-descriptions-item>
+                <el-descriptions-item label="实付金额">{{ currentPurchase.actual_payment }}</el-descriptions-item>
+                <el-descriptions-item label="物流公司">{{ currentPurchase.logistics_company }}</el-descriptions-item>
+                <el-descriptions-item label="物流单号">{{ currentPurchase.logistics_no }}</el-descriptions-item>
+                <el-descriptions-item label="付款时间">{{ currentPurchase.pay_time }}</el-descriptions-item>
+                <el-descriptions-item label="收件人：">{{ currentPurchase.receiver_name || '-' }} {{ currentPurchase.receiver_mobile }}</el-descriptions-item>
+                <el-descriptions-item label="收货地址" :span="2">{{ currentPurchase.receiver_address }}</el-descriptions-item>
+            </el-descriptions>
+            
+            <el-divider content-position="left">商品明细</el-divider>
+            
+            <el-table :data="currentPurchase.items" border stripe style="width: 100%; margin-top: 15px;">
+                <el-table-column prop="sku" label="SKU" width="150" />
+                <el-table-column prop="product_name" label="商品名称" min-width="180" />
+                <el-table-column prop="model" label="型号/规格" width="120" />
+                <el-table-column prop="quantity" label="数量" width="80" align="center" />
+                <el-table-column prop="unit_price" label="单价" width="100" align="right" />
+                <el-table-column prop="goods_amount" label="总价" width="100" align="right" />
+            </el-table>
+        </div>
       </el-dialog>
     </el-card>
   </div>
