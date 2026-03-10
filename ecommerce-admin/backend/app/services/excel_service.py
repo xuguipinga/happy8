@@ -367,6 +367,27 @@ class ExcelService:
             if exist_cols:
                 df[exist_cols] = df[exist_cols].ffill()
                 
+            # ===== 新增：运费、优惠和实付款按货品总价分摊 =====
+            # 为避免一单多品时，多次累加产生报表统计错误，现将订单级金额按货品总价比例分摊给每个SKU子单
+            alloc_cols = ['运费(元)', '涨价或折扣(元)', '实付款(元)']
+            for col in alloc_cols + ['货品总价(元)']:
+                if col in df.columns:
+                    df[col + '_num'] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+
+            if '订单编号' in df.columns and '货品总价(元)_num' in df.columns:
+                group_sums = df.groupby('订单编号')['货品总价(元)_num'].transform('sum')
+                
+                # 如果订单总货品金额为0（如赠品），则平均分摊
+                import numpy as np
+                group_counts = df.groupby('订单编号')['订单编号'].transform('count')
+                df['ratio'] = np.where(group_sums > 0, df['货品总价(元)_num'] / group_sums, 1.0 / group_counts)
+                
+                for col in alloc_cols:
+                    if col + '_num' in df.columns:
+                        # 分摊计算，替换原有字符串数据
+                        df[col] = (df[col + '_num'] * df['ratio']).round(2).astype(str)
+            # ===============================================
+
             success_count = 0
             errors = []
 
