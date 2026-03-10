@@ -77,12 +77,14 @@
         border 
         stripe
         @filter-change="handleFilterChange"
+        @sort-change="handleSortChange"
+        :default-sort="{ prop: 'model', order: 'ascending' }"
       >
         <el-table-column 
           prop="model" 
           :label="$t('inventory.model')" 
           width="150"
-          sortable
+          sortable="custom"
         >
           <template #default="{ row }">
             <span class="model-tag">{{ row.model }}</span>
@@ -324,6 +326,8 @@ const pageSize = ref(20)
 const searchQuery = ref('')
 const lowStockCount = ref(0)
 const statusFilter = ref('')
+const sortBy = ref('model')
+const sortOrder = ref('ascending')
 
 // Dialog/Drawer State
 const adjustDialogVisible = ref(false)
@@ -369,7 +373,9 @@ const fetchData = async () => {
         page: currentPage.value,
         per_page: pageSize.value,
         search: searchQuery.value,
-        status: statusFilter.value
+        status: statusFilter.value,
+        sort_by: sortBy.value,
+        sort_order: sortOrder.value
       }
     })
     if (res.code === 200) {
@@ -395,6 +401,18 @@ const handleFilterChange = (filters) => {
     currentPage.value = 1
     fetchData()
   }
+}
+
+const handleSortChange = ({ prop, order }) => {
+  if (order) {
+    sortBy.value = prop
+    sortOrder.value = order
+  } else {
+    sortBy.value = 'model'
+    sortOrder.value = 'ascending'
+  }
+  currentPage.value = 1
+  fetchData()
 }
 
 const handleSizeChange = (val) => {

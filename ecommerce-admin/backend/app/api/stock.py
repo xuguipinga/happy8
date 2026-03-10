@@ -18,6 +18,8 @@ def get_inventory():
     status = request.args.get('status', '')
     page = int(request.args.get('page', 1))
     per_page = int(request.args.get('per_page', 20))
+    sort_by = request.args.get('sort_by', 'model')
+    sort_order = request.args.get('sort_order', 'ascending')
     
     query = Inventory.query.filter_by(tenant_id=tenant_id)
     if search:
@@ -30,7 +32,15 @@ def get_inventory():
     elif status == 'OUT':
         query = query.filter(Inventory.quantity <= 0)
     
-    pagination = query.order_by(Inventory.model.asc()).paginate(page=page, per_page=per_page)
+    # 支持自定义排序
+    if sort_by == 'model':
+        query = query.order_by(Inventory.model.asc() if sort_order == 'ascending' else Inventory.model.desc())
+    elif sort_by == 'updated_at':
+        query = query.order_by(Inventory.updated_at.asc() if sort_order == 'ascending' else Inventory.updated_at.desc())
+    else:
+        query = query.order_by(Inventory.model.asc())
+        
+    pagination = query.paginate(page=page, per_page=per_page)
     
     return jsonify({
         'code': 200,
