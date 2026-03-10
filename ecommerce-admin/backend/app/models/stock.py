@@ -54,6 +54,7 @@ class StockRecord(db.Model):
     # 关系映射
     inventory = db.relationship('Inventory', backref=db.backref('records', lazy=True))
     order = db.relationship('Order', backref=db.backref('stock_records', lazy=True))
+    purchase = db.relationship('Purchase', backref=db.backref('stock_records', lazy=True))
 
     def __repr__(self):
         return f'<StockRecord {self.record_type} {self.change_quantity}>'
