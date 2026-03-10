@@ -14,64 +14,72 @@ class ProfitService:
     @staticmethod
     def calculate_order_profit(order):
         """
-        计算单个订单的利润
-        Profit = (Order Amount + Shipping Income - Discount - Tax) - (Product Cost * Quantity) - Logistics Cost
+        计算单个行级订单的利润（一行 = 一个 SKU、一笔销售）
+        收入 = unit_price × quantity（行级，避免整单实付重复叠加）
+        成本 = 从采购明细表按 SKU 查询最新采购单价 × 数量
+        物流 = 按同订单号的所有 SKU 行数均摊
+        毛利 = 收入 - 成本 - 物流
         """
         try:
-            # 1. 收入部分 (Income)
-            # 注意: 这里的计算公式需要根据具体业务调整，暂定为：实付金额 - 税费 (假设实付已包含运费和折扣)
-            # 或者更细致：订单金额 + 运费收入 - 折扣
-            
-            # 使用 actual_paid 作为基础收入，减去税费(如果是代缴税)
-            income = order.actual_paid if order.actual_paid else Decimal(0)
-            
-            # 如果 actual_paid 为0，尝试用 components 计算
-            if income == 0:
-                income = (order.order_amount or 0) + (order.shipping_fee_income or 0) - (order.discount_amount or 0) - (order.tax_fee or 0)
+            from app.models.purchase import PurchaseItem
+            from app.models.stock import Inventory
 
-            # 2. 产品成本 (Product Cost)
+            qty = Decimal(str(order.quantity or 0))
+
+            # 1. 行级收入：单价 × 数量，不用整单 actual_paid 避免多行重复叠加
+            unit_price = order.unit_price if order.unit_price else Decimal(0)
+            income = unit_price * qty
+
+            # 2. 产品成本（RMB）：按 SKU 从采购明细表查最新单价
             product_cost = Decimal(0)
             if order.sku:
-                product = Product.query.filter_by(sku=order.sku).first()
-                if product:
-                    # 优先使用平均成本，如果没有则使用最新采购价
-                    unit_cost = product.avg_cost_price if product.avg_cost_price > 0 else product.latest_purchase_price
-                    product_cost = unit_cost * Decimal(order.quantity)
-                    
-                    # 更新订单上的 snapshot 成本
-                    order.cost_price = product_cost
+                # 优先从采购明细子表查
+                purchase_item = (
+                    PurchaseItem.query
+                    .filter_by(sku=order.sku)
+                    .order_by(PurchaseItem.id.desc())
+                    .first()
+                )
+                if purchase_item and purchase_item.unit_price:
+                    product_cost = Decimal(str(purchase_item.unit_price)) * qty
                 else:
-                    # 如果产品表没定义该 SKU，尝试智能解析并匹配库存表
-                    model, spec = parse_sku(order.sku)
-                    if model:
-                        # 在库存表中查找型号匹配项
-                        inv = Inventory.query.filter_by(model=model).first()
-                        if inv:
-                            # 使用库存表的平均成本
-                            unit_cost = inv.avg_cost if inv.avg_cost > 0 else Decimal(0)
-                            product_cost = unit_cost * Decimal(order.quantity)
-                            order.cost_price = product_cost
-                            logger.info(f"Smart Matched SKU {order.sku} to Model {model} with cost {unit_cost}")
+                    # 回退：从 Product 表或 Inventory 表
+                    product = Product.query.filter_by(sku=order.sku).first()
+                    if product:
+                        unit_cost = product.avg_cost_price if (product.avg_cost_price and product.avg_cost_price > 0) else (product.latest_purchase_price or 0)
+                        product_cost = Decimal(str(unit_cost)) * qty
+                    else:
+                        model, spec = parse_sku(order.sku)
+                        if model:
+                            inv = Inventory.query.filter_by(model=model).first()
+                            if inv and inv.avg_cost:
+                                product_cost = Decimal(str(inv.avg_cost)) * qty
 
-            # 3. 物流成本 (Logistics Cost)
+            order.cost_price = product_cost
+
+            # 3. 物流成本：按订单号下的行数均摊，避免每行都叠加全额运费
             logistics_cost = Decimal(0)
-            # 尝试通过平台订单号关联物流单
-            # 注意：Logistics.ref_no 对应 Order.platform_order_no
             logistics_list = Logistics.query.filter_by(ref_no=order.platform_order_no).all()
+            total_logistics = Decimal(0)
             for log in logistics_list:
-                # 累加所有关联物流单的费用
                 fee = log.actual_fee if log.actual_fee is not None else (log.shipping_fee or 0)
-                logistics_cost += fee
-            
+                total_logistics += Decimal(str(fee))
+
+            if total_logistics > 0:
+                # 统计同订单号下的行数（用于均摊）
+                row_count = Order.query.filter_by(
+                    platform_order_no=order.platform_order_no,
+                    tenant_id=order.tenant_id
+                ).count()
+                logistics_cost = total_logistics / Decimal(str(max(row_count, 1)))
+
             order.logistics_cost = logistics_cost
 
-            # 4. 计算毛利 (Gross Profit)
-            # 毛利 = 收入 - 产品成本 - 物流成本
+            # 4. 毛利
             profit = income - product_cost - logistics_cost
             order.profit = profit
-            
-            # 5. 计算利润率 (Profit Rate)
-            # 利润率 = 毛利 / 收入
+
+            # 5. 利润率
             if income > 0:
                 order.profit_rate = (profit / income).quantize(Decimal("0.0001"))
             else:
@@ -79,7 +87,7 @@ class ProfitService:
 
             return True
         except Exception as e:
-            logger.error(f"Error calculating profit for order {order.platform_order_no}: {e}")
+            logger.error(f"Error calculating profit for order row {order.id} ({order.platform_order_no}): {e}")
             return False
 
     @staticmethod
