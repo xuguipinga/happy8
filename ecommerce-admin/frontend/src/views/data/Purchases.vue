@@ -29,7 +29,7 @@
               style="display: none" 
               @change="handleFilesSelected" 
             />
-            <el-button type="primary" :loading="loading" @click="$refs.fileInput.click()" :disabled="loading">
+            <el-button type="primary" :loading="loading" @click="triggerFileInput" :disabled="loading">
                 <el-icon class="el-icon--left"><Upload /></el-icon>
                 批量导入 Excel
             </el-button>
@@ -351,6 +351,12 @@ const handleSortChange = ({ prop, order }) => {
 
 // Upload methods...
 const fileInput = ref(null)
+
+const triggerFileInput = () => {
+    if (fileInput.value) {
+        fileInput.value.click()
+    }
+}
 
 const handleFilesSelected = async (event) => {
     const files = event.target.files
