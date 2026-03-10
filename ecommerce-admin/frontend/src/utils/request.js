@@ -3,7 +3,7 @@ import { ElMessage } from 'element-plus'
 
 const request = axios.create({
     baseURL: '/api',
-    timeout: 10000
+    timeout: 60000 // 增加至 60 秒以支持大量 Excel 解析
 })
 
 // 请求拦截器
