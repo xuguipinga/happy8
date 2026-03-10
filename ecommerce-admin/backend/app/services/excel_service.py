@@ -511,6 +511,12 @@ class ExcelService:
                         )
                         db.session.add(p_item)
                         db.session.flush()
+                    else:
+                        # 更新已存在记录的金额与数量（修复老旧数据的计算错误）
+                        existing_item.quantity = item_qty
+                        existing_item.unit_price = item_unit_price
+                        existing_item.goods_amount = item_goods_amount
+                        existing_item.product_name = product_name_val
 
                     # 3. 处理 Purchase 主订单字段更新 (每次覆盖更新成最新行的内容)
                     purchase.sku = '多SKU订单' if purchase.items.count() > 1 else sku_val
