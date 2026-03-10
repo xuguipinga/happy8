@@ -2,7 +2,7 @@ from flask import request, jsonify
 from app.api import api
 from app.extensions import db
 from app.models.stock import Inventory, StockRecord
-from app.utils.auth_helper import get_tenant_from_request
+from app.utils.auth_helper import get_user_from_request
 from app.utils.inventory_parser import parse_inventory_excel # 导入解析器
 from decimal import Decimal
 from datetime import datetime
@@ -10,7 +10,7 @@ from datetime import datetime
 @api.route('/inventory', methods=['GET'])
 def get_inventory():
     """获取库存列表"""
-    user, error = get_tenant_from_request()
+    user, error = get_user_from_request()
     if error: return error
     tenant_id = user.tenant_id
     
@@ -52,7 +52,7 @@ def get_inventory():
 @api.route('/inventory', methods=['POST'])
 def create_inventory():
     """手动创建新的型号库存项"""
-    user, error = get_tenant_from_request()
+    user, error = get_user_from_request()
     if error: return error
     tenant_id = user.tenant_id
     
@@ -117,7 +117,7 @@ def create_inventory():
 @api.route('/inventory/import', methods=['POST'])
 def import_inventory():
     """从 Excel 批量导入库存型号和初现数量"""
-    user, error = get_tenant_from_request()
+    user, error = get_user_from_request()
     if error: return error
     tenant_id = user.tenant_id
     
@@ -193,7 +193,7 @@ def import_inventory():
 @api.route('/inventory/adjust', methods=['POST'])
 def adjust_inventory():
     """手动调整库存 (入库/出库/报损)"""
-    user, error = get_tenant_from_request()
+    user, error = get_user_from_request()
     if error: return error
     tenant_id = user.tenant_id
     
@@ -238,7 +238,7 @@ def adjust_inventory():
 @api.route('/inventory/records', methods=['GET'])
 def get_stock_records():
     """获取库存流水记录"""
-    user, error = get_tenant_from_request()
+    user, error = get_user_from_request()
     if error: return error
     tenant_id = user.tenant_id
     
@@ -276,7 +276,7 @@ def get_stock_records():
 @api.route('/inventory/<int:id>', methods=['PUT'])
 def update_inventory_item(id):
     """手动修改库存信息"""
-    user, error = get_tenant_from_request()
+    user, error = get_user_from_request()
     if error: return error
     tenant_id = user.tenant_id
     
@@ -318,7 +318,7 @@ def update_inventory_item(id):
 @api.route('/inventory/<int:id>', methods=['DELETE'])
 def delete_inventory_item(id):
     """手动删除库存型号"""
-    user, error = get_tenant_from_request()
+    user, error = get_user_from_request()
     if error: return error
     tenant_id = user.tenant_id
     
