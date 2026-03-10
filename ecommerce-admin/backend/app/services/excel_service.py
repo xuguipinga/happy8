@@ -413,7 +413,9 @@ class ExcelService:
                     # 1.5 检查此项 Item 是否已经存在于该订单下
                     item_qty = ExcelService._parse_decimal(row.get('数量'))
                     item_unit_price = ExcelService._parse_decimal(row.get('单价(元)'))
-                    item_goods_amount = ExcelService._parse_decimal(row.get('货品总价(元)'))
+                    
+                    # 使用数量 * 单价 强制计算货品总价，避免被Excel统计数据干扰
+                    item_goods_amount = item_qty * item_unit_price
                     
                     existing_item = PurchaseItem.query.filter_by(
                         purchase_id=purchase.id,
