@@ -85,7 +85,7 @@ class ExcelService:
     def preview_orders(file_path):
         """预览订单数据导入"""
         try:
-            df = pd.read_excel(file_path)
+            df = pd.read_excel(file_path, dtype=str)
             stats = {
                 'total': len(df),
                 'new': 0,
@@ -128,7 +128,7 @@ class ExcelService:
     def import_orders(file_path, tenant_id):
         """导入订单数据 - 自动设置租户ID"""
         try:
-            df = pd.read_excel(file_path)
+            df = pd.read_excel(file_path, dtype=str)
             
             success_count = 0
             errors = []
@@ -303,7 +303,7 @@ class ExcelService:
     def preview_purchases(file_path):
         """预览采购数据导入"""
         try:
-            df = pd.read_excel(file_path)
+            df = pd.read_excel(file_path, dtype=str)
             stats = {
                 'total': len(df),
                 'new': 0,
@@ -345,17 +345,27 @@ class ExcelService:
     def import_purchases(file_path, tenant_id):
         """导入采购数据 - 自动设置租户ID"""
         try:
-            df = pd.read_excel(file_path)
+            df = pd.read_excel(file_path, dtype=str)
             success_count = 0
             errors = []
 
             for index, row in df.iterrows():
                 try:
                     purchase_no = ExcelService._parse_str(row.get('订单编号'))
-                    sku_val = ExcelService._parse_str(row.get('单品货号')) or ExcelService._parse_str(row.get('SKU ID'))
+                    sku_val = ExcelService._parse_str(row.get('单品货号')) or ExcelService._parse_str(row.get('SKU ID')) or ExcelService._parse_str(row.get('货号'))
                     
                     if not purchase_no or purchase_no == 'nan':
                         continue
+                        
+                    # 解决没有SKU报错的问题
+                    product_name_val = ExcelService._parse_str(row.get('货品标题'))
+                    if not sku_val or sku_val.lower() == 'nan':
+                        if product_name_val:
+                            import hashlib
+                            # 使用商品标题的MD5前8位作为未知SKU标识
+                            sku_val = f"NO_SKU_{hashlib.md5(product_name_val.encode('utf-8')).hexdigest()[:8].upper()}"
+                        else:
+                            sku_val = f"NO_SKU_ROW_{index+2}"
 
                     # 0. 去重校验: 检查该采购单+SKU是否已经导入过
                     existing_purchase = Purchase.query.filter_by(
@@ -527,7 +537,7 @@ class ExcelService:
     def preview_logistics(file_path):
         """预览物流数据导入"""
         try:
-            df = pd.read_excel(file_path)
+            df = pd.read_excel(file_path, dtype=str)
             stats = {
                 'total': len(df),
                 'new': 0,
@@ -573,7 +583,7 @@ class ExcelService:
     def import_logistics(file_path, tenant_id):
         """导入物流数据 - 自动设置租户ID"""
         try:
-            df = pd.read_excel(file_path)
+            df = pd.read_excel(file_path, dtype=str)
             success_count = 0
             errors = []
 
