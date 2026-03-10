@@ -425,76 +425,65 @@ class ExcelService:
                     # 只有全新项才处理库存
                     is_new_item = existing_item is None
 
-                    # 2. 处理 库存增加 (仅对新明细)
+                    # 2. 处理 库存增加 (已禁用，采购导入不自动入库，请在库存管理模块手动操作)
+                    # if is_new_item:
+                    #     # 提取型号和规格
+                    #     model, spec = ExcelService._parse_sku_specification(sku_val)
+                    #     if not model:
+                    #          import re
+                    #          model_match = re.search(r'\b([A-Z]\d{3,})\b', product_name_val or '')
+                    #          if model_match:
+                    #              model = model_match.group(1)
+                    #     
+                    #     if model:
+                    #         inventory = Inventory.query.filter_by(
+                    #             model=model,
+                    #             spec=spec,
+                    #             tenant_id=tenant_id
+                    #         ).first()
+                    #         
+                    #         if not inventory:
+                    #             inventory = Inventory(
+                    #                 model=model,
+                    #                 spec=spec,
+                    #                 tenant_id=tenant_id,
+                    #                 quantity=0,
+                    #                 avg_cost=Decimal('0.0')
+                    #             )
+                    #             db.session.add(inventory)
+                    #             db.session.flush()
+                    #
+                    #         in_qty = item_qty
+                    #         in_price = item_unit_price
+                    #         actual_total = item_goods_amount
+                    #         
+                    #         if in_qty > 0:
+                    #             landed_unit_price = actual_total / in_qty
+                    #             current_quantity = inventory.quantity
+                    #             current_avg_cost = inventory.avg_cost or Decimal('0.0')
+                    #             total_val = (current_quantity * current_avg_cost) + (in_qty * landed_unit_price)
+                    #             new_qty = current_quantity + in_qty
+                    #             if new_qty > 0:
+                    #                 inventory.avg_cost = total_val / new_qty
+                    #             product = Product.query.filter_by(sku=sku_val, tenant_id=tenant_id).first()
+                    #             if product:
+                    #                 product.latest_purchase_price = in_price
+                    #                 product.landed_cost = landed_unit_price
+                    #                 product.avg_cost_price = inventory.avg_cost
+                    #             record = StockRecord(
+                    #                 tenant_id=tenant_id,
+                    #                 inventory_id=inventory.id,
+                    #                 purchase_id=purchase.id,
+                    #                 record_type='IN',
+                    #                 change_quantity=in_qty,
+                    #                 balance_quantity=new_qty,
+                    #                 unit_cost=landed_unit_price,
+                    #                 remark=f"Purchase {purchase_no} auto-inbound (Landed)"
+                    #             )
+                    #             inventory.quantity = new_qty
+                    #             db.session.add(record)
+
                     if is_new_item:
-                        # 提取型号和规格
-                        model, spec = ExcelService._parse_sku_specification(sku_val)
-                        if not model:
-                             import re
-                             model_match = re.search(r'\b([A-Z]\d{3,})\b', product_name_val or '')
-                             if model_match:
-                                 model = model_match.group(1)
-                        
-                        if model:
-                            inventory = Inventory.query.filter_by(
-                                model=model, 
-                                spec=spec, 
-                                tenant_id=tenant_id
-                            ).first()
-                            
-                            if not inventory:
-                                inventory = Inventory(
-                                    model=model, 
-                                    spec=spec, 
-                                    tenant_id=tenant_id,
-                                    quantity=0,
-                                    avg_cost=Decimal('0.0')
-                                )
-                                db.session.add(inventory)
-                                db.session.flush()
-
-                            # 此处的落地成本计算比较复杂，因为主订单运费等可能未读全。
-                            # 暂且简单地将该项金额作为 landed_unit_price
-                            in_qty = item_qty
-                            in_price = item_unit_price
-                            
-                            actual_total = item_goods_amount
-                            
-                            if in_qty > 0:
-                                # 计算本次采购的落地单价 (Landed Cost per unit)
-                                landed_unit_price = actual_total / in_qty
-                                
-                                # 更新 Inventory 表的加权平均成本
-                                current_quantity = inventory.quantity
-                                current_avg_cost = inventory.avg_cost or Decimal('0.0')
-                                
-                                total_val = (current_quantity * current_avg_cost) + (in_qty * landed_unit_price)
-                                new_qty = current_quantity + in_qty
-                                if new_qty > 0:
-                                    inventory.avg_cost = total_val / new_qty
-                                
-                                # 同时同步更新 Product 表的数据作为参考
-                                product = Product.query.filter_by(sku=sku_val, tenant_id=tenant_id).first()
-                                if product:
-                                    product.latest_purchase_price = in_price
-                                    product.landed_cost = landed_unit_price # 本次落地成本
-                                    # 产品全局平均成本也更新
-                                    product.avg_cost_price = inventory.avg_cost
-
-                                # 创建入库记录
-                                record = StockRecord(
-                                    tenant_id=tenant_id,
-                                    inventory_id=inventory.id,
-                                    purchase_id=purchase.id,
-                                    record_type='IN',
-                                    change_quantity=in_qty,
-                                    balance_quantity=new_qty,
-                                    unit_cost=landed_unit_price,
-                                    remark=f"Purchase {purchase_no} auto-inbound (Landed)"
-                                )
-                                inventory.quantity = new_qty
-                                db.session.add(record)
-
                         # 保存 Item 记录
                         p_item = PurchaseItem(
                             tenant_id=tenant_id,
