@@ -87,8 +87,10 @@
         border 
         stripe
         max-height="calc(100vh - 350px)"
+        @sort-change="handleSortChange"
+        :default-sort="{ prop: 'create_time', order: 'descending' }"
       >
-        <el-table-column prop="purchase_no" :label="$t('purchases.purchaseNo')" width="180" fixed />
+        <el-table-column prop="purchase_no" :label="$t('purchases.purchaseNo')" width="180" fixed sortable="custom" />
         
         <el-table-column :label="$t('purchases.productInfo')" min-width="250">
           <template #default="scope">
@@ -151,7 +153,7 @@
           </template>
         </el-table-column>
 
-        <el-table-column prop="create_time" label="创建时间" width="180" />
+        <el-table-column prop="create_time" label="创建时间" width="180" sortable="custom" />
 
         <el-table-column :label="$t('common.operation')" width="100" fixed="right">
             <template #default="scope">
@@ -226,6 +228,9 @@ const searchQuery = ref('')
 const detailsDialogVisible = ref(false)
 const currentPurchase = ref(null)
 
+const sortBy = ref('create_time')
+const sortOrder = ref('descending')
+
 const periodParams = ref({
   period: 'month',
   startDate: '',
@@ -267,7 +272,9 @@ const fetchData = async () => {
             per_page: pageSize.value,
             search: searchQuery.value,
             start_date: periodParams.value.startDate,
-            end_date: periodParams.value.endDate
+            end_date: periodParams.value.endDate,
+            sort_by: sortBy.value,
+            sort_order: sortOrder.value
         })
         if (res.code === 200) {
             tableData.value = res.data.items
@@ -298,6 +305,18 @@ const handleCurrentChange = (val) => {
 const handleViewDetails = (row) => {
     currentPurchase.value = row
     detailsDialogVisible.value = true
+}
+
+const handleSortChange = ({ prop, order }) => {
+    if (order) {
+        sortBy.value = prop
+        sortOrder.value = order
+    } else {
+        sortBy.value = 'create_time'
+        sortOrder.value = 'descending'
+    }
+    currentPage.value = 1
+    fetchData()
 }
 
 // Upload methods...

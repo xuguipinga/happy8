@@ -304,6 +304,15 @@ class ExcelService:
         """预览采购数据导入"""
         try:
             df = pd.read_excel(file_path, dtype=str)
+            
+            ffill_cols = ['订单编号', '买家公司名', '买家会员名', '卖家公司名', '卖家会员名', 
+                          '订单状态', '运费(元)', '涨价或折扣(元)', '实付款(元)', '订单创建时间', 
+                          '订单付款时间', '收货人姓名', '收货地址', '联系电话', '联系手机', 
+                          '邮编', '买家留言', '发货方', '物流公司', '运单号', '是否代发订单']
+            exist_cols = [c for c in ffill_cols if c in df.columns]
+            if exist_cols:
+                df[exist_cols] = df[exist_cols].ffill()
+                
             stats = {
                 'total': len(df),
                 'new': 0,
@@ -346,6 +355,18 @@ class ExcelService:
         """导入采购数据 - 自动设置租户ID"""
         try:
             df = pd.read_excel(file_path, dtype=str)
+            
+            # 解决阿里采购单导出 Excel 时，相同订单合并单元格导致后续行订单编号为空的问题
+            ffill_cols = ['订单编号', '买家公司名', '买家会员名', '卖家公司名', '卖家会员名', 
+                          '订单状态', '运费(元)', '涨价或折扣(元)', '实付款(元)', '订单创建时间', 
+                          '订单付款时间', '收货人姓名', '收货地址', '联系电话', '联系手机', 
+                          '邮编', '买家留言', '发货方', '物流公司', '运单号', '是否代发订单', 
+                          '下游订单号', '关联编号', '下单批次号', '发票：购货单位名称', 
+                          '发票：纳税人识别号', '发票：地址、电话', '发票：开户行及账号', '发票收取地址']
+            exist_cols = [c for c in ffill_cols if c in df.columns]
+            if exist_cols:
+                df[exist_cols] = df[exist_cols].ffill()
+                
             success_count = 0
             errors = []
 

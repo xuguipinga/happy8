@@ -16,9 +16,11 @@ def get_purchases():
     
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 10, type=int)
+    sort_by = request.args.get('sort_by', 'create_time')
+    sort_order = request.args.get('sort_order', 'descending')
     
     # 构建查询 - 添加租户过滤
-    query = Purchase.query.filter_by(tenant_id=tenant_id).order_by(desc(Purchase.create_time))
+    query = Purchase.query.filter_by(tenant_id=tenant_id)
     
     # 搜索功能
     search = request.args.get('search')
@@ -41,6 +43,16 @@ def get_purchases():
         if len(end_date) == 10:
             end_date = end_date + ' 23:59:59'
         query = query.filter(Purchase.create_time <= end_date)
+        
+    # 应用排序
+    if sort_by == 'create_time':
+        query = query.order_by(Purchase.create_time.asc() if sort_order == 'ascending' else Purchase.create_time.desc())
+    elif sort_by == 'purchase_no':
+        query = query.order_by(Purchase.purchase_no.asc() if sort_order == 'ascending' else Purchase.purchase_no.desc())
+    elif sort_by == 'actual_payment':
+        query = query.order_by(Purchase.actual_payment.asc() if sort_order == 'ascending' else Purchase.actual_payment.desc())
+    else:
+        query = query.order_by(Purchase.create_time.desc())
     
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
     purchases = pagination.items
