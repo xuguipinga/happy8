@@ -20,20 +20,19 @@
              </el-input>
         </div>
         <div class="actions">
-            <el-upload
-            class="upload-demo"
-            action="#"
-            :http-request="handleUpload"
-            :show-file-list="false"
-            accept=".xlsx,.xls"
-            :before-upload="beforeUpload"
-            :disabled="loading"
-            >
-            <el-button type="primary" :loading="loading">
+            <!-- 隐藏的多选文件框 -->
+            <input 
+              type="file" 
+              ref="fileInput" 
+              multiple 
+              accept=".xlsx,.xls" 
+              style="display: none" 
+              @change="handleFilesSelected" 
+            />
+            <el-button type="primary" :loading="loading" @click="$refs.fileInput.click()" :disabled="loading">
                 <el-icon class="el-icon--left"><Upload /></el-icon>
-                {{ $t('purchases.importExcel') }}
+                批量导入 Excel
             </el-button>
-            </el-upload>
         </div>
       </div>
     </div>
@@ -351,19 +350,38 @@ const handleSortChange = ({ prop, order }) => {
 }
 
 // Upload methods...
-const beforeUpload = (file) => true
-const handleUpload = async (option) => {
+const fileInput = ref(null)
+
+const handleFilesSelected = async (event) => {
+    const files = event.target.files
+    if (!files || files.length === 0) return
+    
     loading.value = true
     const formData = new FormData()
-    formData.append('file', option.file)
+    for (let i = 0; i < files.length; i++) {
+        formData.append('file', files[i])
+    }
+    
     try {
         const res = await uploadPurchases(formData)
         if (res.code === 200) {
             ElMessage.success(res.message)
+            if (res.data && res.data.errors && res.data.errors.length > 0) {
+                // 如果有部分错误，提示一下
+                ElMessage.warning(`其中有 ${res.data.errors.length} 个警告/错误，请核对`)
+                console.warn("Import warning:", res.data.errors)
+            }
             handleSearch()
+        } else {
+            ElMessage.error(res.message || '导入失败')
         }
-    } catch (e) {} finally {
+    } catch (e) {
+        ElMessage.error('上传出错')
+    } finally {
         loading.value = false
+        if (fileInput.value) {
+            fileInput.value.value = '' // Reset input so same files can be selected again
+        }
     }
 }
 </script>

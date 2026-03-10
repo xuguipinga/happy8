@@ -131,27 +131,38 @@ def upload_purchases():
     if error:
         return error
     
-    if 'file' not in request.files:
+    files = request.files.getlist('file')
+    if not files or len(files) == 0:
         return jsonify({'code': 400, 'message': '未找到文件'}), 400
-    file = request.files['file']
     
-    if file and allowed_file(file.filename):
-        try:
-            file_path = save_upload_file(file)
-            result = ExcelService.import_purchases(file_path, tenant_id=tenant_id)
+    total_count = 0
+    all_errors = []
+    
+    for file in files:
+        if file.filename == '':
+            continue
             
-            if result['success']:
-                return jsonify({
-                    'code': 200, 
-                    'message': f"成功导入 {result['count']} 条采购数据",
-                    'data': {'errors': result['errors']}
-                }), 200
-            else:
-                return jsonify({'code': 500, 'message': result['message']}), 500
-        except Exception as e:
-            return jsonify({'code': 500, 'message': str(e)}), 500
+        if file and allowed_file(file.filename):
+            try:
+                file_path = save_upload_file(file)
+                result = ExcelService.import_purchases(file_path, tenant_id=tenant_id)
+                
+                if result.get('success'):
+                    total_count += result.get('count', 0)
+                    if result.get('errors'):
+                        all_errors.extend([f"[{file.filename}] {err}" for err in result['errors']])
+                else:
+                    all_errors.append(f"[{file.filename}] 解析失败: {result.get('message', '未知错误')}")
+            except Exception as e:
+                all_errors.append(f"[{file.filename}] 服务报错: {str(e)}")
+        else:
+            all_errors.append(f"[{file.filename}] 不支持的文件格式")
             
-    return jsonify({'code': 400, 'message': '不做支持的文件格式'}), 400
+    return jsonify({
+        'code': 200,
+        'message': f"成功读取多个文件，共计导入 {total_count} 条采购单数据",
+        'data': {'errors': all_errors}
+    }), 200
 
 @api.route('/upload/logistics/preview', methods=['POST'])
 def preview_logistics():
