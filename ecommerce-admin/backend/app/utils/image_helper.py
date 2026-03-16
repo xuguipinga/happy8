@@ -8,8 +8,9 @@ def compress_image(image_file, max_size=(800, 800), quality=70):
     """
     压缩图片并返回保存后的路径
     """
-    # 确保上传目录存在
-    upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads/inventory')
+    # 确保上传目录存在 (加上 inventory 子目录以匹配 URL)
+    base_upload = current_app.config.get('UPLOAD_FOLDER', 'uploads')
+    upload_folder = os.path.join(base_upload, 'inventory')
     if not os.path.exists(upload_folder):
         os.makedirs(upload_folder)
         
@@ -41,7 +42,9 @@ def save_image_from_bytes(image_bytes, filename, max_size=(800, 800), quality=70
     从二进制流保存并压缩图片 (用于 Excel 导入)
     """
     import io
-    upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads/inventory')
+    # 确保上传目录存在 (加上 inventory 子目录以匹配 URL)
+    base_upload = current_app.config.get('UPLOAD_FOLDER', 'uploads')
+    upload_folder = os.path.join(base_upload, 'inventory')
     if not os.path.exists(upload_folder):
         os.makedirs(upload_folder)
         
