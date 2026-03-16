@@ -1,95 +1,174 @@
 import pandas as pd
 from decimal import Decimal
 import io
+import os
 import openpyxl
+import zipfile
+import xml.etree.ElementTree as ET
 from app.utils.image_helper import save_image_from_bytes
+
+def extract_images_from_xlsx(file_content):
+    """
+    由于 openpyxl 偶尔无法直接读取图片，使用 zip 直接解析 XML 获取图片锚点
+    返回: {(row, col): image_bytes}
+    注: row/col 是从 0 开始的
+    """
+    image_map = {}
+    try:
+        with zipfile.ZipFile(io.BytesIO(file_content), 'r') as z:
+            # 1. 找到 sheet1 的 rels 来定位 drawing
+            sheet_rels_path = 'xl/worksheets/_rels/sheet1.xml.rels'
+            if sheet_rels_path not in z.namelist():
+                return {}
+            
+            rels_root = ET.fromstring(z.read(sheet_rels_path))
+            drawing_path = None
+            for rel in rels_root:
+                if 'drawing' in rel.attrib.get('Type', ''):
+                    target = rel.attrib.get('Target')
+                    drawing_path = target.replace('../drawings/', 'xl/drawings/')
+                    break
+            
+            if not drawing_path:
+                return {}
+            
+            # 2. 读取 drawing 的 rels 来获取图片 ID 和路径的映射
+            drawing_rels_path = f'xl/drawings/_rels/{os.path.basename(drawing_path)}.rels'
+            media_map = {}
+            if drawing_rels_path in z.namelist():
+                draw_rels_root = ET.fromstring(z.read(drawing_rels_path))
+                for r in draw_rels_root:
+                    rid = r.attrib.get('Id')
+                    target = r.attrib.get('Target').replace('../media/', 'xl/media/')
+                    media_map[rid] = target
+            
+            # 3. 解析 drawing.xml 获取锚点
+            draw_root = ET.fromstring(z.read(drawing_path))
+            ns = {
+                'xdr': 'http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing',
+                'a': 'http://schemas.openxmlformats.org/drawingml/2006/main',
+                'r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+            }
+            
+            for anchor in draw_root.findall('.//xdr:twoCellAnchor', ns) + draw_root.findall('.//xdr:oneCellAnchor', ns):
+                from_el = anchor.find('.//xdr:from', ns)
+                if from_el is None: continue
+                row = int(from_el.find('xdr:row', ns).text)
+                col = int(from_el.find('xdr:col', ns).text)
+                
+                pic = anchor.find('.//xdr:pic', ns)
+                if pic is None: continue
+                blip = pic.find('.//a:blip', ns)
+                if blip is None: continue
+                
+                rid = blip.attrib.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed')
+                if rid in media_map:
+                    image_map[(row, col)] = z.read(media_map[rid])
+                    
+    except Exception as e:
+        print(f"Deep image extraction error: {e}")
+        
+    return image_map
 
 def parse_inventory_excel(file_content):
     """
-    解析带图片的库存 Excel
-    支持带标题行和四列/多列分布
+    解析库存 Excel，支持：
+    1. 标准 3 列纵向列表 (型号, 规格, 数量)
+    2. 克罗心风格的水平网格 (示例图下方的 编号, 定价, 数量)
     """
-    # 使用 openpyxl 提取所有图片及其位置
-    wb = openpyxl.load_workbook(io.BytesIO(file_content))
-    image_map = {} # (row, col) -> image_bytes
-    for sheetname in wb.sheetnames:
-        ws = wb[sheetname]
-        for image in ws._images:
-            # openpyxl 的 row/col 是从 0 开始的
-            row = image.anchor._from.row
-            col = image.anchor._from.col
-            image_map[(row, col)] = image._data()
-
-    # 读取数据
-    df = pd.read_excel(io.BytesIO(file_content), header=None)
+    # 提取图片
+    image_map = extract_images_from_xlsx(file_content)
     
-    # 查找真正的表头行 (包含 '型号')
-    header_idx = -1
-    for idx, row in df.iterrows():
-        if any(str(cell).strip() == '型号' for cell in row):
-            header_idx = idx
-            break
+    # 使用 openpyxl 读取数据以处理合并单元格和多表格
+    wb = openpyxl.load_workbook(io.BytesIO(file_content), data_only=True)
+    ws = wb.active
     
-    if header_idx == -1:
-        # 如果没找到表头，尝试直接作为无标题数据处理，或者报错
-        return []
-        
     results = []
-    # 真正的表头以上的数据丢弃
-    data_df = df.iloc[header_idx+1:].copy()
+    max_row = ws.max_row
+    max_col = ws.max_column
     
-    # 获取总列数
-    cols = len(df.columns)
-    
-    # 每 3 列为一个循环 (型号, 长度, 数量)
-    for i in range(0, cols, 3):
-        if i + 2 >= cols:
-            break
-            
-        # 提取当前三列
-        sub_df = data_df.iloc[:, i:i+3].copy()
-        sub_df.columns = ['model', 'spec', 'quantity']
-        
-        # 处理合并单元格 (型号通常是合并的)
-        # 注意: ffill 之前要先把无效的字符串转为 NaN
-        sub_df['model'] = sub_df['model'].replace(['nan', 'None', '', 'NULL'], pd.NA)
-        sub_df['model'] = sub_df['model'].ffill()
-        
-        for index, row in sub_df.iterrows():
-            model = str(row['model']).strip() if pd.notna(row['model']) else ''
-            if not model or model.lower() in ['nan', 'none', '型号']:
-                continue
+    # 策略 1: 寻找横向网格特征 (包含 "编号" 或 "型号" 且右侧有数据)
+    is_grid = False
+    for r in range(1, min(max_row, 10)):
+        row_vals = [str(ws.cell(r, c).value).strip() if ws.cell(r, c).value else '' for c in range(1, 4)]
+        if '编号' in row_vals or '型号' in row_vals:
+            # 如果是横向的，通常第二列也是型号
+            c2_val = str(ws.cell(r, 2).value).strip() if ws.cell(r, 2).value else ''
+            if c2_val and c2_val not in ['编号', '型号', 'None']:
+                is_grid = True
+                break
                 
-            qty_val = str(row['quantity']).strip() if pd.notna(row['quantity']) else '0'
-            if qty_val.lower() in ['nan', 'none', '数量', '']:
-                continue
-                
-            spec = str(row['spec']).strip() if pd.notna(row['spec']) else ''
-            if spec == '长度': continue
+    if is_grid:
+        # 处理横向网格
+        for r in range(1, max_row + 1):
+            cell_val = str(ws.cell(r, 1).value).strip() if ws.cell(r, 1).value else ''
+            if cell_val in ['编号', '型号']:
+                # 这一行是型号行，下面可能是规格和数量
+                for c in range(2, max_col + 1):
+                    model = str(ws.cell(r, c).value).strip() if ws.cell(r, c).value else ''
+                    if not model or model.lower() in ['none', 'nan']: continue
+                    
+                    # 查找规格（下一行）
+                    spec = str(ws.cell(r + 1, c).value).strip() if ws.cell(r + 1, c).value else ''
+                    if spec.lower() in ['none', 'nan']: spec = ''
+                    
+                    # 查找数量（下下行）
+                    qty_val = ws.cell(r + 2, c).value
+                    try:
+                        qty = Decimal(str(qty_val)) if qty_val is not None else Decimal('0')
+                    except:
+                        qty = Decimal('0')
+                        
+                    # 查找图片 (通常在型号行上方一行)
+                    img_url = None
+                    if (r - 2, c - 1) in image_map: # XML index is 0-based
+                        img_url = save_image_from_bytes(image_map[(r - 2, c - 1)], f"{model}.jpg")
+                    elif (r - 1, c - 1) in image_map:
+                        img_url = save_image_from_bytes(image_map[(r - 1, c - 1)], f"{model}.jpg")
 
-            try:
-                qty = Decimal(qty_val)
-            except:
-                qty = Decimal('0')
-                
-            # 查找关联图片
-            img_url = None
-            # pandas row index matches sheet row index because we didn't reset_index after splitting
-            sheet_row = index 
-            
-            # 检查逻辑：在“型号”列的前一列（示例图）查找图片，或者在型号本身所在列查找
-            for offset in [-1, 0]:
-                check_col = i + offset
-                if (sheet_row, check_col) in image_map:
-                    image_bytes = image_map[(sheet_row, check_col)]
-                    img_url = save_image_from_bytes(image_bytes() if callable(image_bytes) else image_bytes, f"{model}.jpg")
+                    results.append({
+                        'model': model,
+                        'spec': spec,
+                        'quantity': qty,
+                        'image_url': img_url
+                    })
+    else:
+        # 策略 2: 传统的纵向 3 列
+        # 寻找包含 "型号" 的表头
+        header_row = -1
+        for r in range(1, 20):
+            found = False
+            for c in range(1, max_col + 1):
+                if '型号' in str(ws.cell(r, c).value or ''):
+                    header_row = r
+                    found = True
                     break
-
-            results.append({
-                'model': model,
-                'spec': spec,
-                'quantity': qty,
-                'image_url': img_url
-            })
+            if found: break
             
+        if header_row != -1:
+            for r in range(header_row + 1, max_row + 1):
+                # 假设每 3 列一个循环
+                for c_start in range(1, max_col, 3):
+                    model = str(ws.cell(r, c_start).value or '').strip()
+                    if not model or model.lower() in ['none', 'nan', '型号']: continue
+                    
+                    spec = str(ws.cell(r, c_start + 1).value or '').strip()
+                    qty_val = ws.cell(r, c_start + 2).value
+                    try:
+                        qty = Decimal(str(qty_val)) if qty_val is not None else Decimal('0')
+                    except:
+                        qty = Decimal('0')
+                        
+                    img_url = None
+                    # 在型号左侧寻找图片
+                    if (r - 1, c_start - 2) in image_map:
+                        img_url = save_image_from_bytes(image_map[(r - 1, c_start - 2)], f"{model}.jpg")
+                        
+                    results.append({
+                        'model': model,
+                        'spec': spec,
+                        'quantity': qty,
+                        'image_url': img_url
+                    })
+
     return results
