@@ -19,6 +19,7 @@ class Inventory(db.Model):
     avg_cost = db.Column(db.Numeric(12, 4), default=0.0, comment='平均入库成本')
     
     image_url = db.Column(db.String(255), nullable=True, comment='图片地址')
+    status = db.Column(db.String(20), default='NORMAL', comment='库存状态: NORMAL, LOW, EMPTY')
     
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
