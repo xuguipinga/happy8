@@ -35,6 +35,8 @@ services:
     depends_on:
       - db
       - redis
+    volumes:
+      - ./data/uploads:/app/uploads
     # Internal port 5000 is accessible to other services
 
     # Frontend Service (Nginx)

@@ -157,13 +157,22 @@ def import_inventory():
         
         for item in items:
             # 查找或创建
-            inv = Inventory.query.filter_by(
+            # 优先精确匹配 (型号 + 规格)
+            invs = Inventory.query.filter_by(
                 tenant_id=tenant_id, 
                 model=item['model'], 
                 spec=item['spec']
-            ).first()
+            ).all()
             
-            if not inv:
+            # 如果没找到精确匹配，但找到了型号匹配，则认为是要为该型号所有规格同步信息
+            if not invs:
+                invs = Inventory.query.filter_by(
+                    tenant_id=tenant_id,
+                    model=item['model']
+                ).all()
+            
+            if not invs:
+                # 彻底没找到，创建新项
                 inv = Inventory(
                     tenant_id=tenant_id,
                     model=item['model'],
@@ -175,27 +184,43 @@ def import_inventory():
                 )
                 db.session.add(inv)
                 new_models += 1
+                db.session.flush()
+                # 记录流水
+                if item['quantity'] != 0:
+                    record = StockRecord(
+                        tenant_id=tenant_id,
+                        inventory_id=inv.id,
+                        record_type='IN' if item['quantity'] > 0 else 'OUT',
+                        change_quantity=item['quantity'],
+                        balance_quantity=inv.quantity,
+                        remark='Excel 批量导入',
+                        operator_name=user.username
+                    )
+                    db.session.add(record)
             else:
-                # 如果已存在，则累加数量（初始化导入场景）
-                inv.quantity += item['quantity']
-                # 同步图片（如果 Excel 中有图片）
-                if item.get('image_url'):
-                    inv.image_url = item.get('image_url')
-            
-            db.session.flush() # 确保有 ID 进行记录
-            
-            # 记录流水
-            if item['quantity'] != 0:
-                record = StockRecord(
-                    tenant_id=tenant_id,
-                    inventory_id=inv.id,
-                    record_type='IN' if item['quantity'] > 0 else 'OUT',
-                    change_quantity=item['quantity'],
-                    balance_quantity=inv.quantity,
-                    remark='Excel 批量导入',
-                    operator_name=user.username
-                )
-                db.session.add(record)
+                # 找到了匹配项（一个或多个），同步信息
+                for inv in invs:
+                    if item['quantity'] != 0:
+                        inv.quantity += item['quantity']
+                        # 记录流水
+                        record = StockRecord(
+                            tenant_id=tenant_id,
+                            inventory_id=inv.id,
+                            record_type='IN' if item['quantity'] > 0 else 'OUT',
+                            change_quantity=item['quantity'],
+                            balance_quantity=inv.quantity,
+                            remark='Excel 批量导入 (同步)',
+                            operator_name=user.username
+                        )
+                        db.session.add(record)
+                    
+                    # 同步图片和成本
+                    if item.get('image_url'):
+                        inv.image_url = item.get('image_url')
+                    if item.get('avg_cost'):
+                        inv.avg_cost = item.get('avg_cost')
+                
+                db.session.flush()
             
             count += 1
             
