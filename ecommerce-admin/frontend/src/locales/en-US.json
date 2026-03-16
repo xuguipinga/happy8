@@ -117,6 +117,7 @@
     },
     "inventory": {
         "title": "Inventory Management",
+        "image": "Image",
         "model": "Model",
         "spec": "Spec",
         "quantity": "Stock Qty",

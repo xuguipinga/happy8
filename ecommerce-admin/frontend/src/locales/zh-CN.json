@@ -98,6 +98,7 @@
     },
     "inventory": {
         "title": "库存管理",
+        "image": "示例图",
         "model": "产品型号",
         "spec": "规格/尺寸",
         "quantity": "现有库存",
