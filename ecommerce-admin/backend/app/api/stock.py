@@ -4,6 +4,7 @@ from app.extensions import db
 from app.models.stock import Inventory, StockRecord
 from app.utils.auth_helper import get_user_from_request
 from app.utils.inventory_parser import parse_inventory_excel # 导入解析器
+from app.utils.image_helper import compress_image
 from decimal import Decimal
 from datetime import datetime
 
@@ -50,6 +51,7 @@ def get_inventory():
                 'model': item.model,
                 'spec': item.spec,
                 'status': item.status,
+                'image_url': item.image_url,
                 'quantity': float(item.quantity),
                 'unit': item.unit,
                 'avg_cost': float(item.avg_cost),
@@ -99,7 +101,8 @@ def create_inventory():
             status=status,
             quantity=initial_qty,
             unit=unit,
-            avg_cost=avg_cost
+            avg_cost=avg_cost,
+            image_url=data.get('image_url')
         )
         db.session.add(inventory)
         db.session.flush() # 获取 ID
@@ -166,7 +169,8 @@ def import_inventory():
                     model=item['model'],
                     spec=item['spec'],
                     quantity=item['quantity'],
-                    unit='pcs'
+                    unit='pcs',
+                    image_url=item.get('image_url')
                 )
                 db.session.add(inv)
                 new_models += 1
@@ -301,6 +305,7 @@ def update_inventory_item(id):
         if 'spec' in data: inventory.spec = data['spec']
         if 'unit' in data: inventory.unit = data['unit']
         if 'avg_cost' in data: inventory.avg_cost = Decimal(str(data['avg_cost']))
+        if 'image_url' in data: inventory.image_url = data['image_url']
         
         # 如果直接修改了数量，记录一条流水
         if 'quantity' in data:
@@ -345,4 +350,27 @@ def delete_inventory_item(id):
         return jsonify({'code': 200, 'message': '删除成功'})
     except Exception as e:
         db.session.rollback()
+        return jsonify({'code': 500, 'message': str(e)}), 500
+
+@api.route('/inventory/upload', methods=['POST'])
+def upload_inventory_image():
+    """上传库存图片并压缩"""
+    user, error = get_user_from_request()
+    if error: return error
+    
+    if 'file' not in request.files:
+        return jsonify({'code': 400, 'message': '没有文件'}), 400
+        
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'code': 400, 'message': '未选择文件'}), 400
+        
+    try:
+        url = compress_image(file)
+        return jsonify({
+            'code': 200,
+            'message': '上传成功',
+            'data': {'url': url}
+        })
+    except Exception as e:
         return jsonify({'code': 500, 'message': str(e)}), 500

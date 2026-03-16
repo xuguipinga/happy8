@@ -2,11 +2,11 @@
 import sys
 import os
 
-# 模拟路径
+# 修正导入路径
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), 'backend')))
 
-from backend.app import create_app
-from backend.app.extensions import db
+from app import create_app
+from app.extensions import db
 from sqlalchemy import text
 
 app = create_app()
@@ -22,8 +22,13 @@ with app.app_context():
             db.session.execute(text("ALTER TABLE biz_inventory ADD COLUMN status VARCHAR(20) DEFAULT 'NORMAL'"))
             db.session.commit()
             print("Column added successfully.")
+        if 'image_url' not in columns:
+            print("Adding 'image_url' column to biz_inventory...")
+            db.session.execute(text("ALTER TABLE biz_inventory ADD COLUMN image_url VARCHAR(255)"))
+            db.session.commit()
+            print("Column added successfully.")
         else:
-            print("'status' column already exists.")
+            print("'image_url' column already exists.")
             
     except Exception as e:
         print(f"Error checking/updating database: {e}")

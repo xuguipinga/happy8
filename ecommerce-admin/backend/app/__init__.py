@@ -22,4 +22,9 @@ def create_app(config_name='default'):
     def index():
         return 'Ecommerce Admin API is running!'
 
+    @app.route('/uploads/<path:filename>')
+    def uploaded_file(filename):
+        from flask import send_from_directory
+        return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
     return app

@@ -81,6 +81,25 @@
         :default-sort="{ prop: 'model', order: 'ascending' }"
       >
         <el-table-column 
+          :label="$t('inventory.image')" 
+          width="100"
+          align="center"
+        >
+          <template #default="{ row }">
+            <el-image 
+              v-if="row.image_url"
+              :src="row.image_url" 
+              :preview-src-list="[row.image_url]"
+              fit="cover"
+              class="table-image"
+              preview-teleported
+            />
+            <div v-else class="image-placeholder">
+              <el-icon><Picture /></el-icon>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column 
           prop="model" 
           :label="$t('inventory.model')" 
           width="150"
@@ -224,6 +243,19 @@
             <template #prefix>¥</template>
           </el-input>
         </el-form-item>
+        <el-form-item :label="$t('inventory.image')">
+          <el-upload
+            class="avatar-uploader"
+            action="/api/inventory/upload"
+            :show-file-list="false"
+            :on-success="handleCreateImageSuccess"
+            :before-upload="beforeImageUpload"
+            name="file"
+          >
+            <img v-if="createForm.image_url" :src="createForm.image_url" class="avatar" />
+            <el-icon v-else class="avatar-uploader-icon"><Plus /></el-icon>
+          </el-upload>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="createDialogVisible = false">{{ $t('common.cancel') }}</el-button>
@@ -257,6 +289,19 @@
           <el-input v-model="editForm.avg_cost">
             <template #prefix>¥</template>
           </el-input>
+        </el-form-item>
+        <el-form-item :label="$t('inventory.image')">
+          <el-upload
+            class="avatar-uploader"
+            action="/api/inventory/upload"
+            :show-file-list="false"
+            :on-success="handleEditImageSuccess"
+            :before-upload="beforeImageUpload"
+            name="file"
+          >
+            <img v-if="editForm.image_url" :src="editForm.image_url" class="avatar" />
+            <el-icon v-else class="avatar-uploader-icon"><Plus /></el-icon>
+          </el-upload>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -311,7 +356,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox, ElLoading } from 'element-plus'
-import { Plus, Upload, Search, Delete } from '@element-plus/icons-vue'
+import { Plus, Upload, Search, Delete, Picture } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import request from '@/utils/request'
 
@@ -346,7 +391,8 @@ const createForm = ref({
   spec: '',
   unit: 'pcs',
   quantity: 0,
-  avg_cost: ''
+  avg_cost: '',
+  image_url: ''
 })
 const editDialogVisible = ref(false)
 const editForm = ref({
@@ -355,7 +401,8 @@ const editForm = ref({
   spec: '',
   unit: 'pcs',
   quantity: 0,
-  avg_cost: ''
+  avg_cost: '',
+  image_url: ''
 })
 const historyData = ref([])
 
@@ -387,6 +434,36 @@ const fetchData = async () => {
     ElMessage.error(t('common.loadingError'))
   } finally {
     loading.value = false
+  }
+}
+
+const beforeImageUpload = (file) => {
+  const isImage = file.type.startsWith('image/')
+  const isLt2M = file.size / 1024 / 1024 < 2
+  if (!isImage) {
+    ElMessage.error('只能上传图片文件!')
+    return false
+  }
+  if (!isLt2M) {
+    ElMessage.error('图片大小不能超过 2MB!')
+    return false
+  }
+  return true
+}
+
+const handleCreateImageSuccess = (res) => {
+  if (res.code === 200) {
+    createForm.value.image_url = res.data.url
+  } else {
+    ElMessage.error(res.message)
+  }
+}
+
+const handleEditImageSuccess = (res) => {
+  if (res.code === 200) {
+    editForm.value.image_url = res.data.url
+  } else {
+    ElMessage.error(res.message)
   }
 }
 
@@ -582,7 +659,8 @@ const handleEdit = (row) => {
     spec: row.spec,
     unit: row.unit,
     quantity: row.quantity,
-    avg_cost: row.avg_cost
+    avg_cost: row.avg_cost,
+    image_url: row.image_url
   }
   editDialogVisible.value = true
 }
@@ -727,4 +805,46 @@ const handleDelete = async (row) => {
 .balance { font-weight: 500; font-size: 12px; color: #409EFF; }
 
 .no-data { padding: 40px 0; }
+
+.table-image {
+  width: 50px;
+  height: 50px;
+  border-radius: 4px;
+}
+.image-placeholder {
+  width: 50px;
+  height: 50px;
+  background: #f5f7fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #909399;
+  border-radius: 4px;
+}
+.avatar-uploader .avatar {
+  width: 140px;
+  height: 140px;
+  display: block;
+  object-fit: cover;
+}
+.avatar-uploader :deep(.el-upload) {
+  border: 1px dashed #dcdfe6;
+  border-radius: 6px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: 0.3s;
+}
+.avatar-uploader :deep(.el-upload:hover) {
+  border-color: #409eff;
+}
+.avatar-uploader-icon {
+  font-size: 28px;
+  color: #8c939d;
+  width: 140px;
+  height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 </style>
