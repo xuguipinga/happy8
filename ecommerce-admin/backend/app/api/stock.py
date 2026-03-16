@@ -35,11 +35,14 @@ def get_inventory():
     
     # 支持自定义排序
     if sort_by == 'model':
-        query = query.order_by(Inventory.model.asc() if sort_order == 'ascending' else Inventory.model.desc())
+        if sort_order == 'ascending':
+            query = query.order_by(Inventory.model.asc(), Inventory.spec.asc())
+        else:
+            query = query.order_by(Inventory.model.desc(), Inventory.spec.desc())
     elif sort_by == 'updated_at':
         query = query.order_by(Inventory.updated_at.asc() if sort_order == 'ascending' else Inventory.updated_at.desc())
     else:
-        query = query.order_by(Inventory.model.asc())
+        query = query.order_by(Inventory.model.asc(), Inventory.spec.asc())
         
     pagination = query.paginate(page=page, per_page=per_page)
     
