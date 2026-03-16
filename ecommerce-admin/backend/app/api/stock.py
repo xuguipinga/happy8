@@ -177,6 +177,9 @@ def import_inventory():
             else:
                 # 如果已存在，则累加数量（初始化导入场景）
                 inv.quantity += item['quantity']
+                # 同步图片（如果 Excel 中有图片）
+                if item.get('image_url'):
+                    inv.image_url = item.get('image_url')
             
             db.session.flush() # 确保有 ID 进行记录
             
