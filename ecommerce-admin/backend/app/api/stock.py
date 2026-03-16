@@ -170,6 +170,7 @@ def import_inventory():
                     spec=item['spec'],
                     quantity=item['quantity'],
                     unit='pcs',
+                    avg_cost=item.get('avg_cost', 0),
                     image_url=item.get('image_url')
                 )
                 db.session.add(inv)

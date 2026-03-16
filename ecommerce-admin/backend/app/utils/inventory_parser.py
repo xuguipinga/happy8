@@ -112,12 +112,17 @@ def parse_inventory_excel(file_content):
                     spec = str(ws.cell(r + 1, c).value).strip() if ws.cell(r + 1, c).value else ''
                     if spec.lower() in ['none', 'nan']: spec = ''
                     
-                    # 查找数量（下下行）
-                    qty_val = ws.cell(r + 2, c).value
+                    # 查找价格/成本 (下下行) - 针对克罗心表格，这里通常是定价而不是库存
+                    price_val = ws.cell(r + 2, c).value
+                    avg_cost = Decimal('0')
                     try:
-                        qty = Decimal(str(qty_val)) if qty_val is not None else Decimal('0')
+                        if price_val is not None:
+                            avg_cost = Decimal(str(price_val))
                     except:
-                        qty = Decimal('0')
+                        pass
+                        
+                    # 数量默认为 0 (根据用户反馈，该表无库存数)
+                    qty = Decimal('0')
                         
                     # 查找图片 (通常在型号行上方一行)
                     img_url = None
@@ -130,6 +135,7 @@ def parse_inventory_excel(file_content):
                         'model': model,
                         'spec': spec,
                         'quantity': qty,
+                        'avg_cost': avg_cost,
                         'image_url': img_url
                     })
     else:
@@ -168,6 +174,7 @@ def parse_inventory_excel(file_content):
                         'model': model,
                         'spec': spec,
                         'quantity': qty,
+                        'avg_cost': Decimal('0'), # 默认纵向列表暂不支持读取成本
                         'image_url': img_url
                     })
 
