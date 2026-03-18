@@ -22,7 +22,8 @@ def create_app(config_name='default'):
     def index():
         return 'Ecommerce Admin API is running!'
 
-    @app.route('/uploads/<path:filename>')
+    # 静态文件服务：图片上传目录 (增加 /api 前缀以利用 Nginx 的 /api 代理)
+    @app.route('/api/uploads/<path:filename>')
     def uploaded_file(filename):
         from flask import send_from_directory
         return send_from_directory(app.config['UPLOAD_FOLDER'], filename)

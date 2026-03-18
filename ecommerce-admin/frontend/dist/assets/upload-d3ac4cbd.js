@@ -1,0 +1,1 @@
+import{s as o}from"./index-6be58606.js";const a=s=>o({url:"/upload/orders",method:"post",data:s}),r=s=>o({url:"/upload/purchases",method:"post",data:s}),u=s=>o({url:"/upload/logistics",method:"post",data:s});export{r as a,u as b,a as u};

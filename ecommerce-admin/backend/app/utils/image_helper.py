@@ -35,7 +35,8 @@ def compress_image(image_file, max_size=(800, 800), quality=70):
     img.save(filepath, optimize=True, quality=quality)
     
     # 返回访问路径
-    return f"/uploads/inventory/{filename}"
+    # 返回访问路径 (加上 /api 以便 Nginx 统一处理)
+    return f"/api/uploads/inventory/{filename}"
 
 def save_image_from_bytes(image_bytes, filename, max_size=(800, 800), quality=70):
     """
@@ -60,4 +61,5 @@ def save_image_from_bytes(image_bytes, filename, max_size=(800, 800), quality=70
     img.thumbnail(max_size, Image.Resampling.LANCZOS)
     img.save(filepath, optimize=True, quality=quality)
     
-    return f"/uploads/inventory/{new_filename}"
+    # 返回访问路径 (加上 /api 以便 Nginx 统一处理)
+    return f"/api/uploads/inventory/{new_filename}"
