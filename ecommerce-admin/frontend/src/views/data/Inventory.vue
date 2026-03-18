@@ -254,10 +254,13 @@
             drag
             name="file"
           >
-            <template v-if="createForm.image_url">
-              <img :src="createForm.image_url" class="avatar" />
-            </template>
-            <el-icon v-else class="avatar-uploader-icon"><Plus /></el-icon>
+            <img v-if="createForm.image_url" :src="createForm.image_url" class="avatar" />
+            <div v-else class="el-upload__text">
+              <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+              <div class="el-upload__text">
+                {{ $t('inventory.dragText') || '将文件拖到此处，或点击上传' }}
+              </div>
+            </div>
           </el-upload>
         </el-form-item>
       </el-form>
@@ -305,10 +308,13 @@
             drag
             name="file"
           >
-            <template v-if="editForm.image_url">
-              <img :src="editForm.image_url" class="avatar" />
-            </template>
-            <el-icon v-else class="avatar-uploader-icon"><Plus /></el-icon>
+            <img v-if="editForm.image_url" :src="editForm.image_url" class="avatar" />
+            <div v-else class="el-upload__text">
+              <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+              <div class="el-upload__text">
+                {{ $t('inventory.dragText') || '将文件拖到此处，或点击上传' }}
+              </div>
+            </div>
           </el-upload>
         </el-form-item>
       </el-form>
@@ -364,7 +370,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox, ElLoading } from 'element-plus'
-import { Plus, Upload, Search, Delete, Picture } from '@element-plus/icons-vue'
+import { Plus, Upload, Search, Delete, Picture, UploadFilled } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import request from '@/utils/request'
 
@@ -871,5 +877,16 @@ const handleDelete = async (row) => {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+.el-icon--upload {
+  font-size: 48px;
+  color: #a8abb2;
+  margin-bottom: 10px;
+}
+.el-upload__text {
+  font-size: 14px;
+  color: #606266;
+  text-align: center;
+  padding: 0 10px;
 }
 </style>

@@ -150,7 +150,8 @@
         "delete": "Delete",
         "editTitle": "Edit Inventory Info",
         "confirmDelete": "Are you sure you want to delete this model? This will also delete all associated movement records!",
-        "operator": "Operator"
+        "operator": "Operator",
+        "dragText": "Drop file here or click to upload"
     },
     "shortcuts": {
         "today": "Today",
