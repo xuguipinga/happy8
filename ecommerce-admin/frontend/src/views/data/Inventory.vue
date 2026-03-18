@@ -250,9 +250,13 @@
             :show-file-list="false"
             :on-success="handleCreateImageSuccess"
             :before-upload="beforeImageUpload"
+            :headers="uploadHeaders"
+            drag
             name="file"
           >
-            <img v-if="createForm.image_url" :src="createForm.image_url" class="avatar" />
+            <template v-if="createForm.image_url">
+              <img :src="createForm.image_url" class="avatar" />
+            </template>
             <el-icon v-else class="avatar-uploader-icon"><Plus /></el-icon>
           </el-upload>
         </el-form-item>
@@ -297,9 +301,13 @@
             :show-file-list="false"
             :on-success="handleEditImageSuccess"
             :before-upload="beforeImageUpload"
+            :headers="uploadHeaders"
+            drag
             name="file"
           >
-            <img v-if="editForm.image_url" :src="editForm.image_url" class="avatar" />
+            <template v-if="editForm.image_url">
+              <img :src="editForm.image_url" class="avatar" />
+            </template>
             <el-icon v-else class="avatar-uploader-icon"><Plus /></el-icon>
           </el-upload>
         </el-form-item>
@@ -373,6 +381,11 @@ const lowStockCount = ref(0)
 const statusFilter = ref('')
 const sortBy = ref('model')
 const sortOrder = ref('ascending')
+
+// Upload Headers
+const uploadHeaders = computed(() => ({
+  Authorization: `Bearer ${localStorage.getItem('token')}`
+}))
 
 // Dialog/Drawer State
 const adjustDialogVisible = ref(false)
@@ -834,6 +847,18 @@ const handleDelete = async (row) => {
   position: relative;
   overflow: hidden;
   transition: 0.3s;
+  width: 140px;
+  height: 140px;
+}
+.avatar-uploader :deep(.el-upload-dragger) {
+  width: 140px;
+  height: 140px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background-color: transparent;
 }
 .avatar-uploader :deep(.el-upload:hover) {
   border-color: #409eff;
