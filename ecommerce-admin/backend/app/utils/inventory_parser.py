@@ -81,175 +81,166 @@ def parse_inventory_excel(file_content):
     
     # 使用 openpyxl 读取数据以处理合并单元格和多表格
     wb = openpyxl.load_workbook(io.BytesIO(file_content), data_only=True)
-    ws = wb.active
     
     results = []
-    max_row = ws.max_row
-    max_col = ws.max_column
-    current_series = None
     
-    # 遍历所有行，动态识别格式
-    r = 1
-    while r <= max_row:
-        cell_val_1 = str(ws.cell(r, 1).value).strip() if ws.cell(r, 1).value else ''
+    for ws in wb.worksheets:
+        max_row = ws.max_row
+        max_col = ws.max_column
+        current_series = None
         
-        # 1. 检测系列行 (如 "克罗心库存清单C系列")
-        if '系列' in cell_val_1 and ('清单' in cell_val_1 or '库存' in cell_val_1):
-            current_series = cell_val_1
-            r += 1
-            continue
-
-        # 2. 检测 "型号 + 数量" 配对模式 (水平网格)
-        row_vals_5 = [str(ws.cell(r, c).value).strip() for c in range(1, min(max_col, 6) + 1)]
-        if '型号' in row_vals_5 and '数量' in row_vals_5:
-            # 进入配对模式处理
-            r += 1 # 跳过表头
-            while r <= max_row:
-                # 如果遇到下一个系列或列表表头，退出当前模式
-                v1 = str(ws.cell(r, 1).value).strip() if ws.cell(r, 1).value else ''
-                if ('系列' in v1 and '清单' in v1) or v1 == '型号':
-                    break
-                
-                any_data = False
-                for c_idx in range(1, max_col, 2):
-                    model = str(ws.cell(r, c_idx).value).strip() if ws.cell(r, c_idx).value else ''
-                    if not model or model.lower() in ['none', 'nan']: continue
-                    
-                    any_data = True
-                    qty_val = ws.cell(r, c_idx + 1).value
-                    qty = Decimal('0')
-                    try:
-                        if qty_val is not None: qty = Decimal(str(qty_val))
-                    except: pass
-                    
-                    results.append({
-                        'model': model,
-                        'spec': '', # 配对模式通常没有单独规格列
-                        'quantity': qty,
-                        'avg_cost': Decimal('0'),
-                        'image_url': None,
-                        'series': current_series
-                    })
-                if not any_data: break
-                r += 1
-            continue
-
-        # 2.5 检测 "规格/尺寸矩阵" 模式 (如 A:型号, B:17cm, C:18cm, D:19cm ...)
-        # 特征：第一列是 '型号'，后面几列是数字或带 cm 的数字
-        if cell_val_1 == '型号':
-            specs = []
-            for c in range(2, max_col + 1):
-                s = str(ws.cell(r, c).value or '').strip()
-                if not s or s.lower() in ['none', 'nan']: break
-                specs.append(s)
+        # 遍历所有行，动态识别格式
+        r = 1
+        while r <= max_row:
+            cell_val_1 = str(ws.cell(r, 1).value).strip() if ws.cell(r, 1).value else ''
             
-            if specs and any(any(char.isdigit() for char in s) for s in specs):
-                # 认为是矩阵模式
+            # 1. 检测系列行 (如 "克罗心库存清单C系列")
+            if '系列' in cell_val_1 and ('清单' in cell_val_1 or '库存' in cell_val_1):
+                current_series = cell_val_1
+                r += 1
+                continue
+
+            # 2. 检测 "型号 + 数量" 配对模式 (水平网格)
+            row_vals_5 = [str(ws.cell(r, c).value).strip() for c in range(1, min(max_col, 6) + 1)]
+            if '型号' in row_vals_5 and '数量' in row_vals_5:
+                # 进入配对模式处理
                 r += 1 # 跳过表头
                 while r <= max_row:
                     v1 = str(ws.cell(r, 1).value).strip() if ws.cell(r, 1).value else ''
                     if ('系列' in v1 and '清单' in v1) or v1 == '型号':
                         break
                     
-                    model = v1
-                    if not model: break
-                    
                     any_data = False
-                    for i, spec in enumerate(specs):
-                        qty_val = ws.cell(r, i + 2).value
-                        if qty_val is None or str(qty_val).strip() == '': continue
-                        
-                        qty = Decimal('0')
-                        try:
-                            qty = Decimal(str(qty_val))
-                        except:
-                            continue
+                    for c_idx in range(1, max_col, 2):
+                        model = str(ws.cell(r, c_idx).value).strip() if ws.cell(r, c_idx).value else ''
+                        if not model or model.lower() in ['none', 'nan']: continue
                         
                         any_data = True
+                        qty_val = ws.cell(r, c_idx + 1).value
+                        qty = Decimal('0')
+                        try:
+                            if qty_val is not None: qty = Decimal(str(qty_val))
+                        except: pass
+                        
                         results.append({
                             'model': model,
-                            'spec': spec,
+                            'spec': '', # 配对模式通常没有单独规格列
                             'quantity': qty,
                             'avg_cost': Decimal('0'),
                             'image_url': None,
                             'series': current_series
                         })
-                    if not any_data: # 如果整行没数据，可能在该系列结束
-                        # 检查后续是否有数据，如果没有则 break
-                        pass
+                    if not any_data: break
                     r += 1
                 continue
 
-        # 3. 检测 "编号/型号" (后面无数量) -> 传统 3 行网格模式
-        if cell_val_1 in ['编号', '型号']:
-            # 这种模式下，R:型号, R+1:规格, R+2:价格
-            for c in range(2, max_col + 1):
-                model = str(ws.cell(r, c).value).strip() if ws.cell(r, c).value else ''
-                if not model or model.lower() in ['none', 'nan']: continue
+            # 2.5 检测 "规格/尺寸矩阵" 模式 (如 A:型号, B:17cm, C:18cm, D:19cm ...)
+            if cell_val_1 == '型号':
+                specs = []
+                for c in range(2, max_col + 1):
+                    s = str(ws.cell(r, c).value or '').strip()
+                    if not s or s.lower() in ['none', 'nan']: break
+                    specs.append(s)
                 
-                spec = str(ws.cell(r + 1, c).value).strip() if ws.cell(r + 1, c).value else ''
-                if spec.lower() in ['none', 'nan']: spec = ''
-                
-                price_val = ws.cell(r + 2, c).value
-                avg_cost = Decimal('0')
-                try:
-                    if price_val is not None: avg_cost = Decimal(str(price_val))
-                except: pass
-                
-                img_url = None
-                if (r - 2, c - 1) in image_map:
-                    img_url = save_image_from_bytes(image_map[(r - 2, c - 1)], f"{model}.jpg")
-                elif (r - 1, c - 1) in image_map:
-                    img_url = save_image_from_bytes(image_map[(r - 1, c - 1)], f"{model}.jpg")
+                if specs and any(any(char.isdigit() for char in s) for s in specs):
+                    r += 1 # 跳过表头
+                    while r <= max_row:
+                        v1 = str(ws.cell(r, 1).value).strip() if ws.cell(r, 1).value else ''
+                        if ('系列' in v1 and '清单' in v1) or v1 == '型号':
+                            break
+                        
+                        model = v1
+                        if not model: break
+                        
+                        any_data = False
+                        for i, spec in enumerate(specs):
+                            qty_val = ws.cell(r, i + 2).value
+                            if qty_val is None or str(qty_val).strip() == '': continue
+                            
+                            qty = Decimal('0')
+                            try:
+                                qty = Decimal(str(qty_val))
+                            except:
+                                continue
+                            
+                            any_data = True
+                            results.append({
+                                'model': model,
+                                'spec': spec,
+                                'quantity': qty,
+                                'avg_cost': Decimal('0'),
+                                'image_url': None,
+                                'series': current_series
+                            })
+                        r += 1
+                    continue
 
-                results.append({
-                    'model': model,
-                    'spec': spec,
-                    'quantity': Decimal('0'),
-                    'avg_cost': avg_cost,
-                    'image_url': img_url,
-                    'series': current_series
-                })
-            r += 3
-            continue
-
-        # 4. 检测纵向列表模式 (型号, 规格, 数量)
-        if '型号' in row_vals_5:
-            # 如果不是配对模式也不是网格模式，可能是纵向列表下的多列表
-            header_row = r
-            r += 1
-            while r <= max_row:
-                v1 = str(ws.cell(r, 1).value).strip() if ws.cell(r, 1).value else ''
-                if '系列' in v1 and '清单' in v1: break
-                
-                any_data = False
-                for c_start in range(1, max_col, 3):
-                    model = str(ws.cell(r, c_start).value or '').strip()
-                    if not model or model.lower() in ['none', 'nan', '型号']: continue
+            # 3. 检测 "编号/型号" (后面无数量) -> 传统 3 行网格模式
+            if cell_val_1 in ['编号', '型号']:
+                for c in range(2, max_col + 1):
+                    model = str(ws.cell(r, c).value).strip() if ws.cell(r, c).value else ''
+                    if not model or model.lower() in ['none', 'nan']: continue
                     
-                    any_data = True
-                    spec = str(ws.cell(r, c_start + 1).value or '').strip()
-                    qty_val = ws.cell(r, c_start + 2).value
-                    qty = Decimal(str(qty_val)) if qty_val is not None else Decimal('0')
+                    spec = str(ws.cell(r + 1, c).value).strip() if ws.cell(r + 1, c).value else ''
+                    if spec.lower() in ['none', 'nan']: spec = ''
+                    
+                    price_val = ws.cell(r + 2, c).value
+                    avg_cost = Decimal('0')
+                    try:
+                        if price_val is not None: avg_cost = Decimal(str(price_val))
+                    except: pass
                     
                     img_url = None
-                    if (r - 1, c_start - 2) in image_map:
-                        img_url = save_image_from_bytes(image_map[(r - 1, c_start - 2)], f"{model}.jpg")
-                        
+                    if (r - 2, c - 1) in image_map:
+                        img_url = save_image_from_bytes(image_map[(r - 2, c - 1)], f"{model}.jpg")
+                    elif (r - 1, c - 1) in image_map:
+                        img_url = save_image_from_bytes(image_map[(r - 1, c - 1)], f"{model}.jpg")
+
                     results.append({
                         'model': model,
                         'spec': spec,
-                        'quantity': qty,
-                        'avg_cost': Decimal('0'),
+                        'quantity': Decimal('0'),
+                        'avg_cost': avg_cost,
                         'image_url': img_url,
                         'series': current_series
                     })
-                if not any_data: break
+                r += 3
+                continue
+
+            # 4. 检测纵向列表模式 (型号, 规格, 数量)
+            if '型号' in row_vals_5:
+                header_row = r
                 r += 1
-            continue
+                while r <= max_row:
+                    v1 = str(ws.cell(r, 1).value).strip() if ws.cell(r, 1).value else ''
+                    if '系列' in v1 and '清单' in v1: break
+                    
+                    any_data = False
+                    for c_start in range(1, max_col, 3):
+                        model = str(ws.cell(r, c_start).value or '').strip()
+                        if not model or model.lower() in ['none', 'nan', '型号']: continue
+                        
+                        any_data = True
+                        spec = str(ws.cell(r, c_start + 1).value or '').strip()
+                        qty_val = ws.cell(r, c_start + 2).value
+                        qty = Decimal(str(qty_val)) if qty_val is not None else Decimal('0')
+                        
+                        img_url = None
+                        if (r - 1, c_start - 2) in image_map:
+                            img_url = save_image_from_bytes(image_map[(r - 1, c_start - 2)], f"{model}.jpg")
+                            
+                        results.append({
+                            'model': model,
+                            'spec': spec,
+                            'quantity': qty,
+                            'avg_cost': Decimal('0'),
+                            'image_url': img_url,
+                            'series': current_series
+                        })
+                    if not any_data: break
+                    r += 1
+                continue
 
-        r += 1
-
-    return results
-
+            r += 1
+    
     return results
