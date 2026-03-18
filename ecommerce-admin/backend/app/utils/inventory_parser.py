@@ -101,7 +101,9 @@ def parse_inventory_excel(file_content):
                 
     if is_grid:
         # 处理横向网格
+        skipped_until = 0
         for r in range(1, max_row + 1):
+            if r < skipped_until: continue
             cell_val = str(ws.cell(r, 1).value).strip() if ws.cell(r, 1).value else ''
             
             # 检测系列行 (如 "克罗心库存清单C系列")
@@ -109,8 +111,51 @@ def parse_inventory_excel(file_content):
                 current_series = cell_val
                 continue
 
+            # 检测是否为 "型号+数量" 配对模式 (如 A:型号, B:数量, C:型号, D:数量)
+            row_header_vals = [str(ws.cell(r, c).value).strip() for c in range(1, min(max_col, 5) + 1)]
+            if '型号' in row_header_vals and '数量' in row_header_vals:
+                # 这种模式下，数据通常在这一行之后
+                # 我们继续向下扫描，直到遇到下一个系列或空行
+                for data_r in range(r + 1, max_row + 1):
+                    # 如果遇到系列行
+                    next_val_1 = str(ws.cell(data_r, 1).value).strip() if ws.cell(data_r, 1).value else ''
+                    if '系列' in next_val_1 and ('清单' in next_val_1 or '库存' in next_val_1):
+                        skipped_until = data_r
+                        break
+                    
+                    row_any_val = False
+                    for c_idx in range(1, max_col, 2):
+                        model = str(ws.cell(data_r, c_idx).value).strip() if ws.cell(data_r, c_idx).value else ''
+                        if not model or model.lower() in ['none', 'nan', '型号']: continue
+                        
+                        row_any_val = True
+                        qty_val = ws.cell(data_r, c_idx + 1).value
+                        qty = Decimal('0')
+                        try:
+                            if qty_val is not None and str(qty_val).strip():
+                                qty = Decimal(str(qty_val))
+                        except:
+                            pass
+                        
+                        results.append({
+                            'model': model,
+                            'spec': '',
+                            'quantity': qty,
+                            'avg_cost': Decimal('0'),
+                            'image_url': None, # 这种紧凑格式暂不支持图片
+                            'series': current_series
+                        })
+                    if not row_any_val: # 空行表示该段结束
+                        skipped_until = data_r + 1
+                        break
+                    
+                    if data_r == max_row:
+                        skipped_until = max_row + 1
+                continue 
+
             if cell_val in ['编号', '型号']:
-                # 这一行是型号行，下面可能是规格和数量
+                skipped_until = r + 3 # 之前的 3 行模式通常占用 3 行，跳过以避免重复处理
+                # 原始 3 行网格模式 (型号 -> 规格 -> 价格)
                 for c in range(2, max_col + 1):
                     model = str(ws.cell(r, c).value).strip() if ws.cell(r, c).value else ''
                     if not model or model.lower() in ['none', 'nan']: continue
@@ -119,7 +164,7 @@ def parse_inventory_excel(file_content):
                     spec = str(ws.cell(r + 1, c).value).strip() if ws.cell(r + 1, c).value else ''
                     if spec.lower() in ['none', 'nan']: spec = ''
                     
-                    # 查找价格/成本 (下下行) - 针对克罗心表格，这里通常是定价而不是库存
+                    # 查找价格 (下下行)
                     price_val = ws.cell(r + 2, c).value
                     avg_cost = Decimal('0')
                     try:
@@ -128,12 +173,11 @@ def parse_inventory_excel(file_content):
                     except:
                         pass
                         
-                    # 数量默认为 0 (根据用户反馈，该表无库存数)
                     qty = Decimal('0')
                         
-                    # 查找图片 (通常在型号行上方一行)
+                    # 查找图片
                     img_url = None
-                    if (r - 2, c - 1) in image_map: # XML index is 0-based
+                    if (r - 2, c - 1) in image_map:
                         img_url = save_image_from_bytes(image_map[(r - 2, c - 1)], f"{model}.jpg")
                     elif (r - 1, c - 1) in image_map:
                         img_url = save_image_from_bytes(image_map[(r - 1, c - 1)], f"{model}.jpg")
