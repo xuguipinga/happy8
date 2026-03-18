@@ -48,6 +48,21 @@
             </el-button>
           </el-upload>
         </div>
+        <el-select
+          v-model="selectedSeries"
+          :placeholder="$t('inventory.series') || '按系列筛选'"
+          clearable
+          class="series-select"
+          @change="handleSeriesChange"
+          style="width: 180px; margin-right: 12px;"
+        >
+          <el-option
+            v-for="item in seriesList"
+            :key="item"
+            :label="item"
+            :value="item"
+          />
+        </el-select>
         <el-input
           v-model="searchQuery"
           :placeholder="$t('common.search') + '...'"
@@ -147,6 +162,12 @@
             </el-tag>
           </template>
         </el-table-column>
+        <el-table-column 
+          prop="series" 
+          :label="$t('inventory.series') || '系列'" 
+          width="180"
+          show-overflow-tooltip
+        />
         <el-table-column prop="spec" :label="$t('inventory.spec')" width="150" />
         <el-table-column prop="quantity" :label="$t('inventory.quantity')" align="center">
           <template #default="{ row }">
@@ -245,6 +266,9 @@
         <el-form-item :label="$t('inventory.spec')">
           <el-input v-model="createForm.spec" placeholder="如: 20cm 或 Black" />
         </el-form-item>
+        <el-form-item :label="$t('inventory.series')">
+          <el-input v-model="createForm.series" placeholder="如: C系列" />
+        </el-form-item>
         <el-form-item :label="$t('inventory.unit')">
           <el-input v-model="createForm.unit" placeholder="pcs" />
         </el-form-item>
@@ -298,6 +322,9 @@
         </el-form-item>
         <el-form-item :label="$t('inventory.spec')">
           <el-input v-model="editForm.spec" />
+        </el-form-item>
+        <el-form-item :label="$t('inventory.series')">
+          <el-input v-model="editForm.series" />
         </el-form-item>
         <el-form-item :label="$t('inventory.unit')">
           <el-input v-model="editForm.unit" />
@@ -400,6 +427,9 @@ const lowStockCount = ref(0)
 const statusFilter = ref('')
 const sortBy = ref('model')
 const sortOrder = ref('ascending')
+const selectedStatus = ref('')
+const selectedSeries = ref('')
+const seriesList = ref([])
 
 // Upload Headers
 const uploadHeaders = computed(() => ({
@@ -421,6 +451,7 @@ const createDialogVisible = ref(false)
 const createForm = ref({
   model: '',
   spec: '',
+  series: '',
   unit: 'pcs',
   quantity: 0,
   avg_cost: '',
@@ -431,6 +462,7 @@ const editForm = ref({
   id: null,
   model: '',
   spec: '',
+  series: '',
   unit: 'pcs',
   quantity: 0,
   avg_cost: '',
@@ -438,8 +470,23 @@ const editForm = ref({
 })
 const historyData = ref([])
 
+const fetchSeries = async () => {
+  try {
+    const res = await request({
+      url: '/inventory/series',
+      method: 'get'
+    })
+    if (res.code === 200) {
+      seriesList.value = res.data
+    }
+  } catch (error) {
+    console.error('Fetch series error:', error)
+  }
+}
+
 onMounted(() => {
   fetchData()
+  fetchSeries()
 })
 
 const fetchData = async () => {
@@ -452,7 +499,8 @@ const fetchData = async () => {
         page: currentPage.value,
         per_page: pageSize.value,
         search: searchQuery.value,
-        status: statusFilter.value,
+        status: selectedStatus.value,
+        series: selectedSeries.value,
         sort_by: sortBy.value,
         sort_order: sortOrder.value
       }
@@ -500,6 +548,11 @@ const handleEditImageSuccess = (res) => {
 }
 
 const handleSearch = () => {
+  currentPage.value = 1
+  fetchData()
+}
+
+const handleSeriesChange = () => {
   currentPage.value = 1
   fetchData()
 }
@@ -555,9 +608,11 @@ const openCreateDialog = () => {
   createForm.value = {
     model: '',
     spec: '',
+    series: '',
     unit: 'pcs',
     quantity: 0,
-    avg_cost: ''
+    avg_cost: '',
+    image_url: ''
   }
   createDialogVisible.value = true
 }
@@ -698,6 +753,7 @@ const handleEdit = (row) => {
     id: row.id,
     model: row.model,
     spec: row.spec,
+    series: row.series,
     unit: row.unit,
     quantity: row.quantity,
     avg_cost: row.avg_cost,

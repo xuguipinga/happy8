@@ -13,10 +13,13 @@ class InventoryRepository(BaseRepository):
         ).first()
 
     @classmethod
-    def find_by_tenant(cls, tenant_id, search=None, status=None):
+    def find_by_tenant(cls, tenant_id, search=None, status=None, series=None):
         query = cls.model.query.filter_by(tenant_id=tenant_id)
         if search:
             query = query.filter(cls.model.model.ilike(f'%{search}%') | cls.model.spec.ilike(f'%{search}%'))
+        
+        if series:
+            query = query.filter(cls.model.series == series)
         
         if status == 'NORMAL':
             query = query.filter(cls.model.quantity > 5)

@@ -6,8 +6,8 @@ from app.repositories.stock_record_repository import StockRecordRepository
 
 class StockService:
     @classmethod
-    def get_inventory_list(cls, tenant_id, search=None, status=None, page=1, per_page=20, sort_by='model', sort_order='ascending'):
-        query = InventoryRepository.find_by_tenant(tenant_id, search, status)
+    def get_inventory_list(cls, tenant_id, search=None, status=None, series=None, page=1, per_page=20, sort_by='model', sort_order='ascending'):
+        query = InventoryRepository.find_by_tenant(tenant_id, search, status, series)
         
         # 排序逻辑
         if sort_by == 'model':
@@ -43,7 +43,8 @@ class StockService:
             quantity=initial_qty,
             unit=data.get('unit', 'pcs'),
             avg_cost=avg_cost,
-            image_url=data.get('image_url')
+            image_url=data.get('image_url'),
+            series=data.get('series')
         )
         
         db.session.add(inventory)
@@ -112,6 +113,7 @@ class StockService:
         if 'unit' in data: inventory.unit = data['unit']
         if 'avg_cost' in data: inventory.avg_cost = Decimal(str(data['avg_cost']))
         if 'image_url' in data: inventory.image_url = data['image_url']
+        if 'series' in data: inventory.series = data['series']
         
         if 'quantity' in data:
             new_qty = Decimal(str(data['quantity']))
@@ -131,6 +133,16 @@ class StockService:
         
         db.session.commit()
         return inventory
+
+    @classmethod
+    def get_unique_series(cls, tenant_id):
+        # 获取所有非空的系列
+        series = db.session.query(Inventory.series).filter(
+            Inventory.tenant_id == tenant_id,
+            Inventory.series != None,
+            Inventory.series != ''
+        ).distinct().all()
+        return [s[0] for s in series]
 
     @classmethod
     def delete_inventory(cls, tenant_id, inventory_id):
@@ -183,7 +195,8 @@ class StockService:
                     quantity=qty_to_set,
                     unit='pcs',
                     avg_cost=avg_cost_to_set,
-                    image_url=image_url_to_set
+                    image_url=image_url_to_set,
+                    series=item.get('series')
                 )
                 db.session.add(inv)
                 new_models += 1
@@ -222,6 +235,10 @@ class StockService:
                     # 仅在模式包含 data 时更新平均成本
                     if import_mode in ['all', 'only_data'] and item.get('avg_cost'):
                         inv.avg_cost = item.get('avg_cost')
+                    
+                    # 总是尝试更新系列信息（如果 Excel 中有的话）
+                    if item.get('series'):
+                        inv.series = item.get('series')
                 db.session.flush()
             count += 1
             

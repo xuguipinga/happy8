@@ -12,6 +12,7 @@ class Inventory(db.Model):
     tenant_id = db.Column(db.Integer, db.ForeignKey('sys_tenants.id'), nullable=False, index=True, comment='租户ID')
     model = db.Column(db.String(100), index=True, nullable=False, comment='型号 (如 B002)')
     spec = db.Column(db.String(100), index=True, nullable=True, comment='规格/尺寸 (如 20cm)')
+    series = db.Column(db.String(50), index=True, nullable=True, comment='系列 (如 C系列)')
     quantity = db.Column(db.Numeric(12, 4), default=0.0, comment='当前库存数量')
     unit = db.Column(db.String(20), default='pcs', comment='单位')
     

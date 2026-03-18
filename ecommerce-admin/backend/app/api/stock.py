@@ -15,6 +15,7 @@ def get_inventory():
         tenant_id=user.tenant_id,
         search=request.args.get('search', ''),
         status=request.args.get('status', ''),
+        series=request.args.get('series', ''),
         page=int(request.args.get('page', 1)),
         per_page=int(request.args.get('per_page', 20)),
         sort_by=request.args.get('sort_by', 'model'),
@@ -25,6 +26,7 @@ def get_inventory():
         'id': item.id,
         'model': item.model,
         'spec': item.spec,
+        'series': item.series,
         'status': item.status,
         'image_url': item.image_url,
         'quantity': float(item.quantity),
@@ -34,6 +36,15 @@ def get_inventory():
     } for item in pagination.items]
     
     return success_response({'items': items, 'total': pagination.total})
+    
+@api.route('/inventory/series', methods=['GET'])
+def get_inventory_series():
+    """获取所有唯一的系列名称"""
+    user, error = get_user_from_request()
+    if error: return error
+    
+    series_list = StockService.get_unique_series(user.tenant_id)
+    return success_response(series_list)
 
 @api.route('/inventory', methods=['POST'])
 def create_inventory():

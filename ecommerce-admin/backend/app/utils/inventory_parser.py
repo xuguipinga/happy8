@@ -86,6 +86,7 @@ def parse_inventory_excel(file_content):
     results = []
     max_row = ws.max_row
     max_col = ws.max_column
+    current_series = None
     
     # 策略 1: 寻找横向网格特征 (包含 "编号" 或 "型号" 且右侧有数据)
     is_grid = False
@@ -102,6 +103,12 @@ def parse_inventory_excel(file_content):
         # 处理横向网格
         for r in range(1, max_row + 1):
             cell_val = str(ws.cell(r, 1).value).strip() if ws.cell(r, 1).value else ''
+            
+            # 检测系列行 (如 "克罗心库存清单C系列")
+            if '系列' in cell_val and ('清单' in cell_val or '库存' in cell_val):
+                current_series = cell_val
+                continue
+
             if cell_val in ['编号', '型号']:
                 # 这一行是型号行，下面可能是规格和数量
                 for c in range(2, max_col + 1):
@@ -136,7 +143,8 @@ def parse_inventory_excel(file_content):
                         'spec': spec,
                         'quantity': qty,
                         'avg_cost': avg_cost,
-                        'image_url': img_url
+                        'image_url': img_url,
+                        'series': current_series
                     })
     else:
         # 策略 2: 传统的纵向 3 列
@@ -153,6 +161,12 @@ def parse_inventory_excel(file_content):
             
         if header_row != -1:
             for r in range(header_row + 1, max_row + 1):
+                # 检测系列行 (纵向列表模式也支持检测系列)
+                cell_val_1 = str(ws.cell(r, 1).value or '').strip()
+                if '系列' in cell_val_1 and ('清单' in cell_val_1 or '库存' in cell_val_1):
+                    current_series = cell_val_1
+                    continue
+
                 # 假设每 3 列一个循环
                 for c_start in range(1, max_col, 3):
                     model = str(ws.cell(r, c_start).value or '').strip()
@@ -175,7 +189,8 @@ def parse_inventory_excel(file_content):
                         'spec': spec,
                         'quantity': qty,
                         'avg_cost': Decimal('0'), # 默认纵向列表暂不支持读取成本
-                        'image_url': img_url
+                        'image_url': img_url,
+                        'series': current_series
                     })
 
     return results
