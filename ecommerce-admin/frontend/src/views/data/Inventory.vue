@@ -13,12 +13,12 @@
             action="#"
             :auto-upload="false"
             :show-file-list="false"
-            :on-change="handleImport"
+            :on-change="(file) => handleImport(file, false, 'only_data')"
             accept=".xlsx, .xls"
           >
             <el-button type="success" plain>
               <el-icon class="el-icon--left"><Upload /></el-icon>
-              {{ $t('inventory.importExcel') }}
+              {{ $t('inventory.importData') || '导入库存数据' }}
             </el-button>
           </el-upload>
           <el-upload
@@ -26,10 +26,23 @@
             action="#"
             :auto-upload="false"
             :show-file-list="false"
-            :on-change="(file) => handleImport(file, true)"
+            :on-change="(file) => handleImport(file, false, 'only_image')"
             accept=".xlsx, .xls"
           >
-            <el-button type="danger" plain title="清空并重新导入">
+            <el-button type="primary" plain>
+              <el-icon class="el-icon--left"><Picture /></el-icon>
+              {{ $t('inventory.syncImages') || '从 Excel 同步图片' }}
+            </el-button>
+          </el-upload>
+          <el-upload
+            class="upload-inline"
+            action="#"
+            :auto-upload="false"
+            :show-file-list="false"
+            :on-change="(file) => handleImport(file, true, 'all')"
+            accept=".xlsx, .xls"
+          >
+            <el-button type="danger" plain title="清空并重新导入全部">
               <el-icon class="el-icon--left"><Delete /></el-icon>
               {{ $t('inventory.resetImport') }}
             </el-button>
@@ -573,21 +586,29 @@ const submitCreate = async () => {
   }
 }
 
-const handleImport = async (file, clearExisting = false) => {
-  if (clearExisting) {
-    try {
-      await ElMessageBox.confirm(
-        t('inventory.resetConfirm'),
-        t('common.warning'),
-        {
-          confirmButtonText: t('common.confirm'),
-          cancelButtonText: t('common.cancel'),
-          type: 'warning',
-        }
-      )
-    } catch {
-      return
+const handleImport = async (file, clearExisting = false, importMode = 'all') => {
+  // 确定提示信息
+  let confirmMessage = t('inventory.resetConfirm')
+  if (!clearExisting) {
+    if (importMode === 'only_data') {
+      confirmMessage = t('inventory.importDataConfirm')
+    } else if (importMode === 'only_image') {
+      confirmMessage = t('inventory.syncImagesConfirm')
     }
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      confirmMessage,
+      t('common.warning'),
+      {
+        confirmButtonText: t('common.confirm'),
+        cancelButtonText: t('common.cancel'),
+        type: clearExisting ? 'danger' : 'warning',
+      }
+    )
+  } catch {
+    return
   }
 
   const loadingInstance = ElLoading.service({
@@ -599,6 +620,7 @@ const handleImport = async (file, clearExisting = false) => {
   const formData = new FormData()
   formData.append('file', file.raw)
   formData.append('clear_existing', clearExisting)
+  formData.append('import_mode', importMode)
   
   try {
     const res = await request({

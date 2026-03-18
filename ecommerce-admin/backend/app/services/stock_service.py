@@ -143,7 +143,7 @@ class StockService:
         db.session.commit()
 
     @classmethod
-    def import_inventory(cls, tenant_id, file_content, clear_existing, operator_name):
+    def import_inventory(cls, tenant_id, file_content, clear_existing, operator_name, import_mode='all'):
         from app.utils.inventory_parser import parse_inventory_excel
         
         if clear_existing:
@@ -171,32 +171,38 @@ class StockService:
                 ).all()
             
             if not invs:
+                # 根据导入模式设置字段
+                qty_to_set = item['quantity'] if import_mode in ['all', 'only_data'] else 0
+                avg_cost_to_set = item.get('avg_cost', 0) if import_mode in ['all', 'only_data'] else 0
+                image_url_to_set = item.get('image_url') if import_mode in ['all', 'only_image'] else None
+
                 inv = Inventory(
                     tenant_id=tenant_id,
                     model=item['model'],
                     spec=item['spec'],
-                    quantity=item['quantity'],
+                    quantity=qty_to_set,
                     unit='pcs',
-                    avg_cost=item.get('avg_cost', 0),
-                    image_url=item.get('image_url')
+                    avg_cost=avg_cost_to_set,
+                    image_url=image_url_to_set
                 )
                 db.session.add(inv)
                 new_models += 1
                 db.session.flush()
-                if item['quantity'] != 0:
+                if qty_to_set != 0:
                     record = StockRecord(
                         tenant_id=tenant_id,
                         inventory_id=inv.id,
-                        record_type='IN' if item['quantity'] > 0 else 'OUT',
-                        change_quantity=item['quantity'],
+                        record_type='IN' if qty_to_set > 0 else 'OUT',
+                        change_quantity=qty_to_set,
                         balance_quantity=inv.quantity,
-                        remark='Excel 批量导入',
+                        remark='Excel 批量导入' + (f' ({import_mode})' if import_mode != 'all' else ''),
                         operator_name=operator_name
                     )
                     db.session.add(record)
             else:
                 for inv in invs:
-                    if item['quantity'] != 0:
+                    # 仅在模式包含 data 时更新数量和成本
+                    if import_mode in ['all', 'only_data'] and item['quantity'] != 0:
                         inv.quantity += item['quantity']
                         record = StockRecord(
                             tenant_id=tenant_id,
@@ -204,13 +210,17 @@ class StockService:
                             record_type='IN' if item['quantity'] > 0 else 'OUT',
                             change_quantity=item['quantity'],
                             balance_quantity=inv.quantity,
-                            remark='Excel 批量导入 (同步)',
+                            remark='Excel 批量导入 (同步数据)',
                             operator_name=operator_name
                         )
                         db.session.add(record)
-                    if item.get('image_url'):
+                    
+                    # 仅在模式包含 image 时更新图片
+                    if import_mode in ['all', 'only_image'] and item.get('image_url'):
                         inv.image_url = item.get('image_url')
-                    if item.get('avg_cost'):
+                    
+                    # 仅在模式包含 data 时更新平均成本
+                    if import_mode in ['all', 'only_data'] and item.get('avg_cost'):
                         inv.avg_cost = item.get('avg_cost')
                 db.session.flush()
             count += 1

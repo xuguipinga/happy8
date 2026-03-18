@@ -63,6 +63,7 @@ def import_inventory():
         return error_response('请选择文件')
         
     clear_existing = request.form.get('clear_existing') == 'true'
+    import_mode = request.form.get('import_mode', 'all')
     file = request.files['file']
     
     try:
@@ -70,7 +71,8 @@ def import_inventory():
             tenant_id=user.tenant_id,
             file_content=file.read(),
             clear_existing=clear_existing,
-            operator_name=user.username
+            operator_name=user.username,
+            import_mode=import_mode
         )
         return success_response(message=f'成功处理 {count} 条数据，新增 {new_models} 个型号')
     except Exception as e:
