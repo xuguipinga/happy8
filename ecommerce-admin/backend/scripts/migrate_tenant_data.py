@@ -20,7 +20,7 @@ def create_default_tenant():
             name='默认租户',
             code='DEFAULT',
             is_active=True,
-            created_at=datetime.utcnow()
+            created_at=datetime.now()
         )
         db.session.add(tenant)
         db.session.commit()
