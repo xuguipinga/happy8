@@ -11,10 +11,8 @@ services:
       MYSQL_USER: app_user # 后端应用使用的账号
       MYSQL_PASSWORD: app_password_123 # 后端应用使用的密码
     volumes:
-      # 数据持久化：即使删除容器，数据还在 d:/happy8/ecommerce-admin/data/mysql
-      - ./data/mysql:/var/lib/mysql
-      # 初始化脚本：首次启动时自动建表 (稍后我们会把 SQL 放进去)
-      - ./data/init:/docker-entrypoint-initdb.d
+      # 数据持久化：物理路径移至项目外部，防止误删
+      - /opt/mysql_data/mysql:/var/lib/mysql
     ports:
       - "3307:3306" # 映射到主机端口 (主项目3306, 电商项目3307...)
     command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
