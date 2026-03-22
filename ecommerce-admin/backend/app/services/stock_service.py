@@ -190,12 +190,6 @@ class StockService:
             ).all()
             
             if not invs:
-                invs = Inventory.query.filter_by(
-                    tenant_id=tenant_id,
-                    model=item['model']
-                ).all()
-            
-            if not invs:
                 # 根据导入模式设置字段
                 qty_to_set = item['quantity'] if import_mode in ['all', 'only_data'] else 0
                 avg_cost_to_set = item.get('avg_cost', 0) if import_mode in ['all', 'only_data'] else 0

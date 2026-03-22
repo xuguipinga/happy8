@@ -218,7 +218,7 @@ def parse_inventory_excel(file_content):
                         'quantity': qty,
                         'avg_cost': Decimal('0'),
                         'image_url': img_url,
-                        'series': current_series
+                        'series': current_series if current_series else (model[0].upper() + '系列' if model and model[0].isalpha() else None)
                     })
                 r += 1
                 continue
@@ -246,7 +246,7 @@ def parse_inventory_excel(file_content):
                         'quantity': Decimal('0'),
                         'avg_cost': avg_cost,
                         'image_url': img_url,
-                        'series': current_series
+                        'series': current_series if current_series else (model[0].upper() + '系列' if model and model[0].isalpha() else None)
                     })
                  r += 3
                  continue
