@@ -4,6 +4,15 @@ from app.models.stock import Inventory, StockRecord
 from app.repositories.inventory_repository import InventoryRepository
 from app.repositories.stock_record_repository import StockRecordRepository
 
+def to_decimal(value, default=Decimal('0')):
+    if value is None or (isinstance(value, str) and value.strip() == ''):
+        return default
+    try:
+        return Decimal(str(value))
+    except:
+        return default
+
+
 class StockService:
     @classmethod
     def get_inventory_list(cls, tenant_id, search=None, status=None, series=None, page=1, per_page=20, sort_by='model', sort_order='ascending'):
@@ -32,8 +41,9 @@ class StockService:
         if exists:
             raise ValueError("该型号规格已存在")
             
-        initial_qty = Decimal(str(data.get('quantity', 0)))
-        avg_cost = Decimal(str(data.get('avg_cost', 0)))
+        initial_qty = to_decimal(data.get('quantity', 0))
+        avg_cost = to_decimal(data.get('avg_cost', 0))
+
         
         inventory = Inventory(
             tenant_id=tenant_id,
@@ -72,9 +82,10 @@ class StockService:
         if not inventory or inventory.tenant_id != tenant_id:
             raise ValueError("库存项目未找到")
             
-        change_qty = Decimal(str(change_qty))
+        change_qty = to_decimal(change_qty)
         if record_type == 'IN' and unit_cost is not None and change_qty > 0:
-            unit_cost = Decimal(str(unit_cost))
+            unit_cost = to_decimal(unit_cost)
+
             total_value = (inventory.quantity * inventory.avg_cost) + (change_qty * unit_cost)
             new_total_qty = inventory.quantity + change_qty
             if new_total_qty > 0:
@@ -111,12 +122,14 @@ class StockService:
         if 'model' in data: inventory.model = data['model']
         if 'spec' in data: inventory.spec = data['spec']
         if 'unit' in data: inventory.unit = data['unit']
-        if 'avg_cost' in data: inventory.avg_cost = Decimal(str(data['avg_cost']))
+        if 'avg_cost' in data: inventory.avg_cost = to_decimal(data['avg_cost'])
+
         if 'image_url' in data: inventory.image_url = data['image_url']
         if 'series' in data: inventory.series = data['series']
         
         if 'quantity' in data:
-            new_qty = Decimal(str(data['quantity']))
+            new_qty = to_decimal(data['quantity'])
+
             if new_qty != inventory.quantity:
                 change = new_qty - inventory.quantity
                 record = StockRecord(
