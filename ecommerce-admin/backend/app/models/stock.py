@@ -22,8 +22,9 @@ class Inventory(db.Model):
     image_url = db.Column(db.String(255), nullable=True, comment='图片地址')
     status = db.Column(db.String(20), default='NORMAL', comment='库存状态: NORMAL, LOW, EMPTY')
     
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+
 
     def __repr__(self):
         return f'<Inventory {self.model}-{self.spec}: {self.quantity}>'
@@ -51,7 +52,7 @@ class StockRecord(db.Model):
     remark = db.Column(db.String(255), comment='备注 (如: 报损、样品领取)')
     operator_name = db.Column(db.String(50), comment='操作人姓名')
     
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
 
     # 关系映射
     inventory = db.relationship('Inventory', backref=db.backref('records', lazy=True))

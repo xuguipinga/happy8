@@ -101,7 +101,7 @@ def register():
             tenant_name = data.get('tenant_name', f"{username}的店铺")
             new_tenant = Tenant(
                 name=tenant_name,
-                code=f"T{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",  # 自动生成租户代码
+                code=f"T{datetime.now().strftime('%Y%m%d%H%M%S')}",  # 自动生成租户代码
                 is_active=True
             )
             db.session.add(new_tenant)

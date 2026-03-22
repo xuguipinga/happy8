@@ -8,8 +8,9 @@ def generate_token(user_id, username, tenant_id):
         'user_id': user_id,
         'username': username,
         'tenant_id': tenant_id,  # 添加租户ID
-        'exp': datetime.utcnow() + timedelta(days=7),  # 7天过期
-        'iat': datetime.utcnow()
+        'exp': datetime.now() + timedelta(days=7),  # 7天过期
+        'iat': datetime.now()
+
     }
     token = jwt.encode(payload, current_app.config['SECRET_KEY'], algorithm='HS256')
     return token

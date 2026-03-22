@@ -8,7 +8,7 @@ class OrderPurchaseLink(db.Model):
     tenant_id = db.Column(db.Integer, db.ForeignKey('sys_tenants.id'), nullable=False)
     order_id = db.Column(db.BigInteger, db.ForeignKey('biz_orders.id'), nullable=False)
     purchase_id = db.Column(db.BigInteger, db.ForeignKey('biz_purchases.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
 
     # Relationships
     purchase = db.relationship('Purchase', backref=db.backref('order_links', cascade='all, delete-orphan'))

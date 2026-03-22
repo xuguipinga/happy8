@@ -18,7 +18,7 @@ class Purchase(db.Model):
     discount = db.Column(db.Numeric(12, 4), comment='总折扣')
     actual_payment = db.Column(db.Numeric(12, 4), comment='实付款')
     order_status = db.Column(db.String(50), comment='采购状态')
-    create_time = db.Column(db.DateTime, default=datetime.utcnow, comment='创建时间')
+    create_time = db.Column(db.DateTime, default=datetime.now, comment='创建时间')
     pay_time = db.Column(db.DateTime, comment='付款时间')
     logistics_company = db.Column(db.String(100), comment='物流公司')
     logistics_no = db.Column(db.String(100), comment='物流单号')
@@ -78,7 +78,7 @@ class PurchaseItem(db.Model):
     unit_price = db.Column(db.Numeric(12, 4), comment='采购单价')
     goods_amount = db.Column(db.Numeric(12, 4), comment='单项总价')
     
-    create_time = db.Column(db.DateTime, default=datetime.utcnow, comment='创建时间')
+    create_time = db.Column(db.DateTime, default=datetime.now, comment='创建时间')
 
     def __repr__(self):
         return f'<PurchaseItem {self.sku} (Qty: {self.quantity})>'

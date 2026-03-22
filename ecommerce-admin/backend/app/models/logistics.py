@@ -32,7 +32,7 @@ class Logistics(db.Model):
     sender_email = db.Column(db.String(150), comment='发件人邮件')
     ordering_account = db.Column(db.String(100), comment='下单账号')
 
-    create_time = db.Column(db.DateTime, default=datetime.utcnow, comment='创建时间')
+    create_time = db.Column(db.DateTime, default=datetime.now, comment='创建时间')
 
     def __repr__(self):
         return f'<Logistics {self.tracking_no}>'

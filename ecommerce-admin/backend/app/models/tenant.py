@@ -12,8 +12,9 @@ class Tenant(db.Model):
     contact_phone = db.Column(db.String(20), comment='联系电话')
     contact_email = db.Column(db.String(100), comment='联系邮箱')
     is_active = db.Column(db.Boolean, default=True, comment='是否启用')
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, comment='创建时间')
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment='更新时间')
+    created_at = db.Column(db.DateTime, default=datetime.now, comment='创建时间')
+    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now, comment='更新时间')
+
 
     def to_dict(self):
         """转换为字典"""
