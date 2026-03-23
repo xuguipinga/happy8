@@ -251,14 +251,15 @@ def parse_inventory_excel(file_content):
                         qty_val = ws.cell(r, c_start + 1).value
                     
                     # 检查这一组是否有任何形式的数据指示 (型号已在上面判断过)
-                    # 如果型号、规格、数量全是空的，则跳过这一组
-                    if not (str(ws.cell(r, c_start).value or '').strip()) and not spec and (qty_val is None or str(qty_val).strip() == ''):
+                    # 只要有型号，我们就允许这行数据通过，即使数量为空，也会被视为 0
+                    if not (str(ws.cell(r, c_start).value or '').strip()) and not spec:
                         continue
 
                     has_any_data = True
                     qty = Decimal('0')
                     try:
-                        if qty_val is not None: qty = Decimal(str(qty_val))
+                        if qty_val is not None and str(qty_val).strip() != '':
+                            qty = Decimal(str(qty_val))
                     except: pass
                     
                     # 图片提取
