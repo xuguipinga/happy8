@@ -252,7 +252,7 @@ def parse_inventory_excel(file_content):
                     
                     # 检查这一组是否有任何形式的数据指示 (型号已在上面判断过)
                     # 只要有型号，我们就允许这行数据通过，即使数量为空，也会被视为 0
-                    if not (str(ws.cell(r, c_start).value or '').strip()) and not spec:
+                    if not model:
                         continue
 
                     has_any_data = True
