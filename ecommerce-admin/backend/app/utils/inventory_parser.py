@@ -207,7 +207,7 @@ def parse_inventory_excel(file_content):
                     
                     # 图片提取
                     img_url = None
-                    for anchor in [(r-1, c_start-1), (r-2, c_start-1)]:
+                    for anchor in [(r-1, c_start-1), (r-2, c_start-1), (r-3, c_start-1)]:
                         if (name, anchor[0], anchor[1]) in image_map:
                             img_url = save_image_from_bytes(image_map[(name, anchor[0], anchor[1])], f"{model}.jpg")
                             break
@@ -237,8 +237,10 @@ def parse_inventory_excel(file_content):
                     except: pass
                     
                     img_url = None
-                    if (name, r-1, c-1) in image_map:
-                        img_url = save_image_from_bytes(image_map[(name, r-1, c-1)], f"{model}.jpg")
+                    for anchor in [(r-1, c-1), (r-2, c-1), (r-3, c-1)]:
+                        if (name, anchor[0], anchor[1]) in image_map:
+                            img_url = save_image_from_bytes(image_map[(name, anchor[0], anchor[1])], f"{model}.jpg")
+                            break
 
                     results.append({
                         'model': model,

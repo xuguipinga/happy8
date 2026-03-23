@@ -183,11 +183,20 @@ class StockService:
         new_models = 0
         
         for item in items:
-            invs = Inventory.query.filter_by(
-                tenant_id=tenant_id, 
-                model=item['model'], 
-                spec=item['spec']
-            ).all()
+            # 如果是只同步图片模式，只寻找已经存在的型号，不去匹配规格，也不创建新库存
+            if import_mode == 'only_image':
+                invs = Inventory.query.filter_by(
+                    tenant_id=tenant_id, 
+                    model=item['model']
+                ).all()
+                if not invs:
+                    continue # 找不到对应的型号，直接跳过，不新增
+            else:
+                invs = Inventory.query.filter_by(
+                    tenant_id=tenant_id, 
+                    model=item['model'], 
+                    spec=item['spec']
+                ).all()
             
             if not invs:
                 # 根据导入模式设置字段
