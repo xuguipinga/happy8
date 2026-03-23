@@ -240,17 +240,20 @@ class StockService:
                 for inv in invs:
                     # 仅在模式包含 data 时更新数量和成本
                     if import_mode in ['all', 'only_data'] and item['quantity'] != 0:
-                        inv.quantity += item['quantity']
-                        record = StockRecord(
-                            tenant_id=tenant_id,
-                            inventory_id=inv.id,
-                            record_type='IN' if item['quantity'] > 0 else 'OUT',
-                            change_quantity=item['quantity'],
-                            balance_quantity=inv.quantity,
-                            remark='Excel 批量导入 (同步数据)',
-                            operator_name=operator_name
-                        )
-                        db.session.add(record)
+                        # 覆盖当前库存数量，而不是累加
+                        diff_quantity = item['quantity'] - inv.quantity
+                        if diff_quantity != 0:
+                            inv.quantity = item['quantity']
+                            record = StockRecord(
+                                tenant_id=tenant_id,
+                                inventory_id=inv.id,
+                                record_type='IN' if diff_quantity > 0 else 'OUT',
+                                change_quantity=diff_quantity,
+                                balance_quantity=inv.quantity,
+                                remark='Excel 批量导入 (覆盖同步)',
+                                operator_name=operator_name
+                            )
+                            db.session.add(record)
                     
                     # 仅在模式包含 image 时更新图片
                     if import_mode in ['all', 'only_image'] and item.get('image_url'):
