@@ -250,7 +250,6 @@ def parse_inventory_excel(file_content):
                     else:
                         qty_val = ws.cell(r, c_start + 1).value
                     
-                    # 检查这一组是否有任何形式的数据指示 (型号已在上面判断过)
                     # 只要有型号，我们就允许这行数据通过，即使数量为空，也会被视为 0
                     if not model:
                         continue
@@ -258,7 +257,8 @@ def parse_inventory_excel(file_content):
                     has_any_data = True
                     qty = Decimal('0')
                     try:
-                        if qty_val is not None and str(qty_val).strip() != '':
+                        # 核心修改：如果是 None 或空字符串，保持为 0，否则尝试转换
+                        if qty_val is not None and str(qty_val).strip() != '' and str(qty_val).strip().lower() not in ['nan', 'none']:
                             qty = Decimal(str(qty_val))
                     except: pass
                     
