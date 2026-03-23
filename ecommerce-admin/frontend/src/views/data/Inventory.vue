@@ -10,7 +10,7 @@
           </el-button>
           <el-button type="warning" plain @click="handleExport" :loading="exporting">
             <el-icon class="el-icon--left"><Download /></el-icon>
-            {{ $t('common.export') || '导出清单' }}
+            按导入模板导出
           </el-button>
           <el-upload
             class="upload-inline"
