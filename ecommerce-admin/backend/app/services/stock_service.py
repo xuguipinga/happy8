@@ -239,7 +239,7 @@ class StockService:
             else:
                 for inv in invs:
                     # 仅在模式包含 data 时更新数量和成本
-                    if import_mode in ['all', 'only_data'] and item['quantity'] != 0:
+                    if import_mode in ['all', 'only_data']:
                         # 覆盖当前库存数量，而不是累加
                         diff_quantity = item['quantity'] - inv.quantity
                         if diff_quantity != 0:
