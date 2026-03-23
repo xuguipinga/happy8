@@ -8,6 +8,10 @@
             <el-icon class="el-icon--left"><Plus /></el-icon>
             {{ $t('inventory.addNew') }}
           </el-button>
+          <el-button type="warning" plain @click="handleExport" :loading="exporting">
+            <el-icon class="el-icon--left"><Download /></el-icon>
+            {{ $t('common.export') || '导出清单' }}
+          </el-button>
           <el-upload
             class="upload-inline"
             action="#"
@@ -410,13 +414,14 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox, ElLoading } from 'element-plus'
-import { Plus, Upload, Search, Delete, Picture, UploadFilled } from '@element-plus/icons-vue'
+import { Plus, Upload, Search, Delete, Picture, UploadFilled, Download } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import request from '@/utils/request'
 
 const { t } = useI18n()
 
 // Data State
+const exporting = ref(false)
 const loading = ref(false)
 const tableData = ref([])
 const total = ref(0)
@@ -550,6 +555,40 @@ const handleEditImageSuccess = (res) => {
 const handleSearch = () => {
   currentPage.value = 1
   fetchData()
+}
+
+const handleExport = async () => {
+  exporting.value = true
+  try {
+    const res = await request({
+      url: '/inventory/export',
+      method: 'get',
+      params: {
+        search: searchQuery.value,
+        status: selectedStatus.value,
+        series: selectedSeries.value
+      },
+      responseType: 'blob'
+    })
+    
+    const blob = new Blob([res], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    // 生成带时间戳的文件名
+    const timestamp = new Date().getTime()
+    link.download = `库存导出_${timestamp}.xlsx`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+    ElMessage.success('导出成功')
+  } catch (error) {
+    console.error('Export error:', error)
+    ElMessage.error('导出失败')
+  } finally {
+    exporting.value = false
+  }
 }
 
 const handleSeriesChange = () => {

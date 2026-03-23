@@ -13,6 +13,14 @@ def to_decimal(value, default=Decimal('0')):
         return default
 
 
+import io
+import os
+import openpyxl
+from openpyxl.styles import Alignment, Font
+from openpyxl.drawing.image import Image as OpenpyxlImage
+from flask import current_app
+from datetime import datetime
+
 class StockService:
     @classmethod
     def get_inventory_list(cls, tenant_id, search=None, status=None, series=None, page=1, per_page=20, sort_by='model', sort_order='ascending'):
@@ -260,3 +268,73 @@ class StockService:
             
         db.session.commit()
         return count, new_models
+
+    @classmethod
+    def export_inventory(cls, tenant_id, search='', status='', series=''):
+        query = Inventory.query.filter_by(tenant_id=tenant_id)
+        if search:
+            query = query.filter(db.or_(
+                Inventory.model.ilike(f'%{search}%'),
+                Inventory.spec.ilike(f'%{search}%')
+            ))
+        if status:
+            if status == 'NORMAL':
+                query = query.filter(Inventory.quantity > 5)
+            elif status == 'LOW':
+                query = query.filter(Inventory.quantity > 0, Inventory.quantity <= 5)
+            elif status == 'OUT':
+                query = query.filter(Inventory.quantity <= 0)
+        if series:
+            query = query.filter(Inventory.series == series)
+            
+        items = query.order_by(Inventory.model.asc(), Inventory.spec.asc()).all()
+        
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "库存清单"
+        
+        # 使用更易读的、也支持标准导入的列头
+        headers = ['图片', '型号', '规格', '数量', '平均成本', '系列']
+        ws.append(headers)
+        
+        for col in range(1, len(headers) + 1):
+            cell = ws.cell(row=1, column=col)
+            cell.font = Font(bold=True)
+            cell.alignment = Alignment(horizontal='center', vertical='center')
+            
+        ws.column_dimensions['A'].width = 12
+        ws.column_dimensions['B'].width = 15
+        ws.column_dimensions['C'].width = 15
+        ws.column_dimensions['D'].width = 10
+        ws.column_dimensions['E'].width = 12
+        ws.column_dimensions['F'].width = 15
+        
+        base_upload = current_app.config.get('UPLOAD_FOLDER', 'uploads')
+        
+        for idx, item in enumerate(items, start=2):
+            ws.row_dimensions[idx].height = 60
+            
+            ws.cell(row=idx, column=2, value=item.model).alignment = Alignment(horizontal='center', vertical='center')
+            ws.cell(row=idx, column=3, value=item.spec).alignment = Alignment(horizontal='center', vertical='center')
+            ws.cell(row=idx, column=4, value=float(item.quantity)).alignment = Alignment(horizontal='center', vertical='center')
+            ws.cell(row=idx, column=5, value=float(item.avg_cost)).alignment = Alignment(horizontal='center', vertical='center')
+            ws.cell(row=idx, column=6, value=item.series).alignment = Alignment(horizontal='center', vertical='center')
+            
+            if item.image_url:
+                filename = item.image_url.split('/')[-1]
+                img_path = os.path.join(base_upload, 'inventory', filename)
+                if os.path.exists(img_path):
+                    try:
+                        img = OpenpyxlImage(img_path)
+                        img.width = 75
+                        img.height = 75
+                        ws.add_image(img, f'A{idx}')
+                    except Exception as e:
+                        pass
+                        
+        file_stream = io.BytesIO()
+        wb.save(file_stream)
+        file_stream.seek(0)
+        
+        filename = f"库存导出_{datetime.now().strftime('%Y%m%d%H%M%S')}.xlsx"
+        return file_stream, filename

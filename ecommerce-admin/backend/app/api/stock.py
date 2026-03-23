@@ -1,4 +1,5 @@
-from flask import request
+from flask import request, send_file
+import urllib.parse
 from app.api import api
 from app.services.stock_service import StockService
 from app.common.responses import success_response, error_response
@@ -63,6 +64,36 @@ def create_inventory():
         return error_response(str(e))
     except Exception as e:
         return error_response(str(e), code=500)
+
+@api.route('/inventory/export', methods=['GET'])
+def export_inventory():
+    """按当前筛选条件导出库存数据"""
+    user, error = get_user_from_request()
+    if error: return error
+    
+    search = request.args.get('search', '')
+    status = request.args.get('status', '')
+    series = request.args.get('series', '')
+    
+    file_stream, filename = StockService.export_inventory(
+        tenant_id=user.tenant_id,
+        search=search,
+        status=status,
+        series=series
+    )
+    
+    encoded_filename = urllib.parse.quote(filename)
+    
+    response = send_file(
+        file_stream,
+        as_attachment=True,
+        download_name=filename,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    # 添加这行让前端能读取到正确的中文文件名
+    response.headers['Access-Control-Expose-Headers'] = 'Content-Disposition'
+    response.headers['Content-Disposition'] = f"attachment; filename*=UTF-8''{encoded_filename}"
+    return response
 
 @api.route('/inventory/import', methods=['POST'])
 def import_inventory():

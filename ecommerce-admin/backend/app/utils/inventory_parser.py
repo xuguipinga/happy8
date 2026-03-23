@@ -141,6 +141,62 @@ def parse_inventory_excel(file_content):
             # 2. 识别表头并确定模式
             # 检查当前行是否包含表头关键字
             if '型号' in row_vals:
+                # ==== 新增：标准纵向表格解析模式 ====
+                if row_vals.count('型号') == 1 and ('数量' in row_vals or '现有库存' in row_vals):
+                    col_map = {name: idx for idx, name in enumerate(row_vals)}
+                    r += 1
+                    while r <= max_row:
+                        curr_row_vals = [str(ws.cell(r, c).value or '').strip() for c in range(1, max_col + 1)]
+                        if not any(curr_row_vals):
+                            r += 1
+                            continue
+                        
+                        model = curr_row_vals[col_map['型号']] if '型号' in col_map and col_map['型号'] < len(curr_row_vals) else ''
+                        if not model:
+                            r += 1
+                            continue
+                            
+                        spec = curr_row_vals[col_map['规格']] if '规格' in col_map and col_map['规格'] < len(curr_row_vals) else ''
+                        
+                        qty_col = col_map.get('数量') if '数量' in col_map else col_map.get('现有库存')
+                        qty_val = curr_row_vals[qty_col] if qty_col is not None and qty_col < len(curr_row_vals) else '0'
+                        try: qty = Decimal(qty_val)
+                        except: qty = Decimal('0')
+                        
+                        cost_col = col_map.get('平均成本')
+                        cost_val = curr_row_vals[cost_col] if cost_col is not None and cost_col < len(curr_row_vals) else '0'
+                        try: avg_cost = Decimal(cost_val)
+                        except: avg_cost = Decimal('0')
+                        
+                        series_col = col_map.get('系列') if '系列' in col_map else col_map.get('产品系列')
+                        series = curr_row_vals[series_col] if series_col is not None and series_col < len(curr_row_vals) else current_series
+                        if not series and model and model[0].isalpha():
+                            series = model[0].upper() + '系列'
+                        
+                        img_col = col_map.get('图片') if '图片' in col_map else col_map.get('示例图')
+                        img_url = None
+                        if img_col is not None:
+                            for anchor in [(r-1, img_col)]:
+                                if (name, anchor[0], anchor[1]) in image_map:
+                                    img_url = save_image_from_bytes(image_map[(name, anchor[0], anchor[1])], f"{model}.jpg")
+                                    break
+                        else:
+                            for anchor in [(r-1, 0), (r-2, 0), (r-3, 0)]:
+                                if (name, anchor[0], anchor[1]) in image_map:
+                                    img_url = save_image_from_bytes(image_map[(name, anchor[0], anchor[1])], f"{model}.jpg")
+                                    break
+                                    
+                        results.append({
+                            'model': model,
+                            'spec': spec,
+                            'quantity': qty,
+                            'avg_cost': avg_cost,
+                            'image_url': img_url,
+                            'series': series
+                        })
+                        r += 1
+                    continue # 当前 sheet 按标准表解析完毕，跳出当前组逻辑
+                
                 # 探测组大小
                 idx_model = row_vals.index('型号')
                 if idx_model + 2 < len(row_vals) and '数量' in row_vals[idx_model + 1:idx_model + 3]:
