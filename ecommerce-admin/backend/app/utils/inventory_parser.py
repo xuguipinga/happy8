@@ -118,6 +118,9 @@ def parse_inventory_excel(file_content):
         # key: col_index, value: last_model_name
         last_model_in_col = {}
 
+        # 维护一个字典，防止同一型号在不同单元格重复出现时，后面的0把前面的有效数字覆盖了
+        current_sheet_models = {}
+
         r = 1
         group_size = 0
         has_spec = False
@@ -269,14 +272,27 @@ def parse_inventory_excel(file_content):
                             img_url = save_image_from_bytes(image_map[(name, anchor[0], anchor[1])], f"{model}.jpg")
                             break
 
-                    results.append({
-                        'model': model,
-                        'spec': spec,
-                        'quantity': qty,
-                        'avg_cost': Decimal('0'),
-                        'image_url': img_url,
-                        'series': current_series if current_series else (model[0].upper() + '系列' if model and model[0].isalpha() else None)
-                    })
+                    # C系列、D系列这类特殊格式：型号可能会重复出现！
+                    # 如果这行解析出了 0，但后面的行又有数据，我们不能直接覆盖成 0 丢进 results，
+                    # 最好是用一个字典来做去重累加/覆盖
+                    
+                    model_key = f"{model}_{spec}"
+                    if model_key not in current_sheet_models:
+                        current_sheet_models[model_key] = {
+                            'model': model,
+                            'spec': spec,
+                            'quantity': qty,
+                            'avg_cost': Decimal('0'),
+                            'image_url': img_url,
+                            'series': current_series if current_series else (model[0].upper() + '系列' if model and model[0].isalpha() else None)
+                        }
+                    else:
+                        # 如果之前解析的是 0，但现在遇到了有数值的
+                        if qty > 0:
+                            current_sheet_models[model_key]['quantity'] = qty
+                        if img_url:
+                            current_sheet_models[model_key]['image_url'] = img_url
+                            
                 r += 1
                 continue
             
@@ -312,4 +328,7 @@ def parse_inventory_excel(file_content):
 
             r += 1
             
+        # 把字典里的数据放进 results
+        results.extend(current_sheet_models.values())
+
     return results
