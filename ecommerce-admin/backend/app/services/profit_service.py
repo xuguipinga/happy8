@@ -27,11 +27,21 @@ class ProfitService:
             qty = Decimal(str(order.quantity or 0))
 
             # 1. 行级收入：单价 × 数量，不用整单 actual_paid 避免多行重复叠加
-            unit_price = order.unit_price if order.unit_price else Decimal(0)
-            income = unit_price * qty
+            unit_price = Decimal(str(order.unit_price)) if order.unit_price is not None else Decimal('0.0')
+            
+            # 原币种收入
+            income_original = unit_price * qty
+            
+            # 引入汇率服务将美元收入转换为人民币收入（统一以人民币核算毛利）
+            from app.services.currency_service import CurrencyService
+            
+            rate = CurrencyService.get_rate_to_cny(order.currency or 'USD', order.order_time)
+            
+            # 将收入转换为 CNY，这里假定 order.currency 是原币种，默认 USD
+            income = CurrencyService.convert_to_cny(income_original, order.currency or 'USD', order.order_time)
 
             # 2. 产品成本（RMB）：按 SKU 从采购明细表查最新单价
-            product_cost = Decimal(0)
+            product_cost = Decimal('0.0')
             if order.sku:
                 # 优先从采购明细子表查
                 purchase_item = (
@@ -58,11 +68,11 @@ class ProfitService:
             order.cost_price = product_cost
 
             # 3. 物流成本：按订单号下的行数均摊，避免每行都叠加全额运费
-            logistics_cost = Decimal(0)
+            logistics_cost = Decimal('0.0')
             logistics_list = Logistics.query.filter_by(ref_no=order.platform_order_no).all()
-            total_logistics = Decimal(0)
+            total_logistics = Decimal('0.0')
             for log in logistics_list:
-                fee = log.actual_fee if log.actual_fee is not None else (log.shipping_fee or 0)
+                fee = log.actual_fee if log.actual_fee is not None else (log.shipping_fee or Decimal('0.0'))
                 total_logistics += Decimal(str(fee))
 
             if total_logistics > 0:
@@ -73,9 +83,10 @@ class ProfitService:
                 ).count()
                 logistics_cost = total_logistics / Decimal(str(max(row_count, 1)))
 
-            order.logistics_cost = logistics_cost
+            order.logistics_cost = logistics_cost / rate if rate > 0 else logistics_cost
 
             # 4. 毛利
+            # 这里统一以 CNY(人民币) 计算毛利
             profit = income - product_cost - logistics_cost
             order.profit = profit
 
@@ -83,7 +94,7 @@ class ProfitService:
             if income > 0:
                 order.profit_rate = (profit / income).quantize(Decimal("0.0001"))
             else:
-                order.profit_rate = Decimal(0)
+                order.profit_rate = Decimal('0.0')
 
             return True
         except Exception as e:
