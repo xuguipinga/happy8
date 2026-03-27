@@ -2,7 +2,6 @@ from app.models.order import Order
 from app.models.product import Product
 from app.models.logistics import Logistics
 from app.models.purchase import Purchase
-from app.api.stock import Inventory # 补充导入
 from app.extensions import db
 from app.utils.sku_parser import parse_sku # 导入解析器
 from decimal import Decimal
