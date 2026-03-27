@@ -3,60 +3,82 @@ import pandas as pd
 from decimal import Decimal
 import io
 import os
+import openpyxl
 
-def parse_inventory_excel(file_content):
-    """
-    [Copy of the logic in inventory_parser.py]
-    """
-    df = pd.read_excel(io.BytesIO(file_content), header=None)
+def test_openpyxl_parser():
+    file_path = r'd:\WorkSpec\Project\Ecommerce-admin\ecommerce-admin\docs\克罗心手镯库存清单.xlsx'
+    wb = openpyxl.load_workbook(file_path, data_only=True)
     
-    header_idx = -1
-    for idx, row in df.iterrows():
-        if any(str(cell).strip() == '型号' for cell in row):
-            header_idx = idx
-            break
-    
-    if header_idx == -1:
-        return []
-        
-    results = []
-    data_df = df.iloc[header_idx+1:].copy()
-    cols = len(df.columns)
-    
-    for i in range(0, cols, 3):
-        if i + 2 >= cols:
-            break
-            
-        sub_df = data_df.iloc[:, i:i+3].copy()
-        sub_df.columns = ['model', 'spec', 'quantity']
-        
-        sub_df['model'] = sub_df['model'].replace(['nan', 'None', '', 'NULL'], pd.NA)
-        sub_df['model'] = sub_df['model'].ffill()
-        
-        for _, row in sub_df.iterrows():
-            model = str(row['model']).strip() if pd.notna(row['model']) else ''
-            if not model or model.lower() in ['nan', 'none', '型号']:
-                continue
-                
-            qty_val = str(row['quantity']).strip() if pd.notna(row['quantity']) else '0'
-            if qty_val.lower() in ['nan', 'none', '数量', '']:
-                continue
-                
-            spec = str(row['spec']).strip() if pd.notna(row['spec']) else ''
-            if spec == '长度': continue
+    for ws in wb.worksheets:
+        name = ws.title
+        max_row = ws.max_row
+        max_col = ws.max_column
+        current_series = None
+        last_model_in_col = {}
 
-            try:
-                qty = Decimal(qty_val)
-            except:
-                qty = Decimal('0')
+        r = 1
+        group_size = 0
+        has_spec = False
+        
+        while r <= max_row:
+            row_vals = [str(ws.cell(r, c).value or '').strip() for c in range(1, max_col + 1)]
+            if not any(row_vals): 
+                r += 1
+                continue
+
+            v1 = row_vals[0]
+            if '系列' in v1 and ('清单' in v1 or '库存' in v1 or '系列' in v1):
+                current_series = v1
+                last_model_in_col = {}
+                r += 1
+                continue
+
+            if '型号' in row_vals:
+                idx_model = row_vals.index('型号')
+                if idx_model + 2 < len(row_vals) and '数量' in row_vals[idx_model + 1:idx_model + 3]:
+                    if row_vals[idx_model + 2] == '数量':
+                        group_size = 3
+                        has_spec = True
+                    else:
+                        group_size = 2
+                        has_spec = False
+                elif idx_model + 1 < len(row_vals) and row_vals[idx_model + 1] == '数量':
+                    group_size = 2
+                    has_spec = False
                 
-            results.append({
-                'model': model,
-                'spec': spec,
-                'quantity': qty
-            })
-            
-    return results
+                if group_size > 0:
+                    r += 1
+                    continue
+
+            if group_size > 0:
+                for c_start in range(1, max_col + 1, group_size):
+                    if c_start > max_col: break
+                    model = str(ws.cell(r, c_start).value or '').strip()
+                    
+                    if model and model.lower() not in ['none', 'nan']:
+                        last_model_in_col[c_start] = model
+                    else:
+                        model = last_model_in_col.get(c_start, '')
+                    
+                    spec = ""
+                    qty_val = None
+                    
+                    if group_size == 3:
+                        spec = str(ws.cell(r, c_start + 1).value or '').strip()
+                        qty_val = ws.cell(r, c_start + 2).value
+                    else:
+                        qty_val = ws.cell(r, c_start + 1).value
+                    
+                    if not model:
+                        continue
+                        
+                    print(f"Row: {r}, Col: {c_start}, Model: '{model}', Spec: '{spec}', Qty_val: '{qty_val}' (type: {type(qty_val)})")
+                r += 1
+                continue
+            r += 1
+
+if __name__ == '__main__':
+    test_openpyxl_parser()
 
 def debug_excel_file(file_path):
     print(f"--- Debugging File Struct: {file_path} ---")
