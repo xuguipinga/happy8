@@ -98,7 +98,8 @@ class ProfitService:
 
             return True
         except Exception as e:
-            logger.error(f"Error calculating profit for order row {order.id} ({order.platform_order_no}): {e}")
+            import traceback
+            logger.error(f"Error calculating profit for order row {order.id} ({order.platform_order_no}): {e}\n{traceback.format_exc()}")
             return False
 
     @staticmethod
@@ -114,11 +115,10 @@ class ProfitService:
                     count += 1
                 
                 # 批量提交，避免内存溢出
-                if count % 100 == 0:
-                    db.session.commit()
-            
             db.session.commit()
             return {'success': True, 'count': count}
         except Exception as e:
             db.session.rollback()
+            import traceback
+            logger.error(f"Recalculate profit failed: {e}\n{traceback.format_exc()}")
             return {'success': False, 'message': str(e)}

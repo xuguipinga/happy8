@@ -207,6 +207,9 @@ def recalculate_profit():
         else:
             return jsonify({'code': 500, 'message': result['message']}), 500
     except Exception as e:
+        import traceback
+        import logging
+        logging.error(f"recalculate-profit api failed: {e}\n{traceback.format_exc()}")
         return jsonify({'code': 500, 'message': str(e)}), 500
 @api.route('/orders/kpi', methods=['GET'])
 @require_auth
