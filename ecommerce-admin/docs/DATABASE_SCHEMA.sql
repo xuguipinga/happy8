@@ -129,7 +129,7 @@ CREATE TABLE `biz_orders` (
   `profit_rate` decimal(10,4) DEFAULT '0.0000' COMMENT '利润率',
   `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `platform_order_no` (`platform_order_no`),
+  KEY `platform_order_no` (`platform_order_no`),
   KEY `tenant_id` (`tenant_id`),
   KEY `idx_sku` (`sku`),
   CONSTRAINT `biz_orders_ibfk_1` FOREIGN KEY (`tenant_id`) REFERENCES `sys_tenants` (`id`)

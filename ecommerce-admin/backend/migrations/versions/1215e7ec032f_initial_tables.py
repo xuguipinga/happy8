@@ -103,7 +103,7 @@ def upgrade():
     )
     with op.batch_alter_table('biz_orders', schema=None) as batch_op:
         batch_op.create_index(batch_op.f('ix_biz_orders_buyer_email'), ['buyer_email'], unique=False)
-        batch_op.create_index(batch_op.f('ix_biz_orders_platform_order_no'), ['platform_order_no'], unique=True)
+        batch_op.create_index(batch_op.f('ix_biz_orders_platform_order_no'), ['platform_order_no'], unique=False)
         batch_op.create_index(batch_op.f('ix_biz_orders_sku'), ['sku'], unique=False)
 
     op.create_table('biz_purchases',
